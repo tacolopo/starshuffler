@@ -1,0 +1,8 @@
+{
+  "name": "juno-privacy-mixer",
+  "version": "1.0.0",
+  "description": "Privacy mixer for Juno blockchain",
+  "dependencies": {
+    "circomlib": "^2.0.0"
+  }
+} 

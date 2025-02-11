@@ -1,0 +1,11 @@
+/target
+**/*.rs.bk
+Cargo.lock
+.env
+node_modules/
+circuit/pot12_*.ptau
+circuit/*.r1cs
+circuit/*.sym
+circuit/*.wasm
+circuit/*.zkey
+circuit/verification_key.* 
