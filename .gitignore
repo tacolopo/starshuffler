@@ -3,9 +3,20 @@
 Cargo.lock
 .env
 node_modules/
-circuit/pot12_*.ptau
+
+# Circuit build artifacts
+circuit/build/
+circuit/node_modules/
+circuit/package.json
+circuit/package-lock.json
+circuit/*.ptau
 circuit/*.r1cs
 circuit/*.sym
 circuit/*.wasm
 circuit/*.zkey
-circuit/verification_key.* 
+circuit/verification_key.*
+
+# Generated verification keys
+src/verification_key/
+**/verification_key.bin
+**/verification_key.json 
