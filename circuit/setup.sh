@@ -37,4 +37,6 @@ snarkjs groth16 setup merkleproof.r1cs pot16_final.ptau merkleproof_0.zkey
 snarkjs zkey contribute merkleproof_0.zkey merkleproof_final.zkey --name="1st contribution" -v
 snarkjs zkey export verificationkey merkleproof_final.zkey verification_key.json
 
-echo "Setup complete!" 
+echo "Setup complete!"
+
+cp build/circuits/merkleproof_verification_key.json build/circuits/verification_key.bin 

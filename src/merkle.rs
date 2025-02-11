@@ -1,4 +1,3 @@
-use sha2::{Sha256, Digest};
 use crate::crypto::hash_pair;
 
 pub struct MerkleTree {

@@ -1,7 +1,7 @@
 use cosmwasm_std::{Storage, StdResult};
 use cw_storage_plus::Map;
 use crate::merkle::MerkleTree;
-use crate::config::CONFIG;
+use crate::state::CONFIG;
 
 pub struct MerkleStore<'a> {
     tree: MerkleTree,

@@ -1,9 +1,9 @@
-use cosmwasm_schema::cw_serde;
-use cosmwasm_std::{Coin, Storage, Uint128};
+use cosmwasm_std::{Coin, Uint128};
 use cw_storage_plus::{Item, Map};
+use serde::{Serialize, Deserialize};
 use crate::zk_snark::MixerVerifyingKey;
 
-#[cw_serde]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Config {
     pub denomination: Coin,
     pub merkle_tree_levels: u32,
@@ -15,13 +15,13 @@ pub struct Config {
 pub const CONFIG: Item<Config> = Item::new("config");
 
 // Store used nullifiers
-pub const NULLIFIERS: Map<&str, bool> = Map::new("nullifiers");
+pub const NULLIFIERS: Map<String, bool> = Map::new("nullifiers");
 
 // Store the Merkle tree nodes
-pub const MERKLE_TREE: Map<&str, String> = Map::new("merkle_tree");
+pub const MERKLE_TREE: Map<String, String> = Map::new("merkle_tree");
 
 // Store the commitments for the Merkle tree
-pub const COMMITMENTS: Map<Uint128, String> = Map::new("commitments");
+pub const COMMITMENTS: Map<String, bool> = Map::new("commitments");
 
 // Store the verifying key
 pub const VERIFYING_KEY_STORE: Item<MixerVerifyingKey> = Item::new("verifying_key"); 

@@ -1,17 +1,14 @@
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::contract::{execute, instantiate, query};
     use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-    use crate::state::Config;
-    use crate::circuit::MixerCircuit;
-    use crate::note_generator::Note;
+    use crate::state::{Config, NULLIFIERS};
+    use crate::error::ContractError;
     use crate::zk_snark::{MixerProof, MixerVerifyingKey};
     use cosmwasm_std::testing::{
         mock_dependencies, mock_env, mock_info, MockApi, MockQuerier, MockStorage,
     };
-    use cosmwasm_std::{OwnedDeps, coins, Addr, Coin, Uint128, from_binary};
-    use merkle_tree::MerkleTree;
+    use cosmwasm_std::{OwnedDeps, Addr, Coin, Uint128, from_binary, MessageInfo, Env};
     use hex;
 
     const DENOM: &str = "ujuno";
