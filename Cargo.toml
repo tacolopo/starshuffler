@@ -25,11 +25,12 @@ hex = "0.4"
 sha2 = "0.10"
 ark-bn254 = "0.4.0"
 ark-ff = "0.4.0"
-ark-std = "0.4.0"
+ark-std = { version = "0.4.0", features = ["getrandom"] }
 ark-serialize = "0.4.0"
 ark-ec = "0.4.0"
 ark-groth16 = "0.4.0"
-rand = "0.8"
+rand = { version = "0.8", features = ["getrandom"] }
+getrandom = { version = "0.2", features = ["js"] }
 
 [dev-dependencies]
 cw-multi-test = "0.16.2" 
