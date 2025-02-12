@@ -193,15 +193,6 @@ mod tests {
         assert_eq!(err, ContractError::InvalidDenomination {});
     }
 
-    fn setup_complete_test() -> (String, String, Vec<String>) {
-        // Use mock data instead of Note
-        let commitment = "mock_commitment".to_string();
-        let root = "mock_root".to_string();
-        let proof = vec!["mock_proof".to_string()];
-        
-        (commitment, root, proof)
-    }
-
     #[test]
     fn test_complete_flow() {
         let (mut deps, _info, env) = setup_contract();

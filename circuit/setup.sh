@@ -39,4 +39,5 @@ snarkjs zkey export verificationkey merkleproof_final.zkey verification_key.json
 
 echo "Setup complete!"
 
-cp build/circuits/merkleproof_verification_key.json build/circuits/verification_key.bin 
+# Copy the verification key (while in build/circuits directory)
+cp verification_key.json verification_key.bin 

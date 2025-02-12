@@ -1,21 +1,38 @@
-use cosmwasm_schema::cw_serde;
 use cosmwasm_std::{StdError, StdResult};
 use ark_bn254::{Bn254, Fr};
 use ark_groth16::{
     Proof, VerifyingKey,
     prepare_verifying_key,
-    verify_proof,
+    Groth16,
 };
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Serialize, Deserialize)]
-pub struct MixerVerifyingKey(#[serde(skip)] VerifyingKey<Bn254>);
+#[derive(Clone)]
+pub struct MixerVerifyingKey(pub(crate) VerifyingKey<Bn254>);
 
 impl MixerVerifyingKey {
     pub fn new(bytes: &[u8]) -> Result<Self, ark_serialize::SerializationError> {
         let vk = VerifyingKey::deserialize_uncompressed(bytes)?;
         Ok(MixerVerifyingKey(vk))
+    }
+}
+
+impl<'a> Serialize for MixerVerifyingKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_none()
+    }
+}
+
+impl<'de> Deserialize<'de> for MixerVerifyingKey {
+    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(MixerVerifyingKey(VerifyingKey::default()))
     }
 }
 
@@ -31,7 +48,7 @@ pub fn verify_withdrawal(
 ) -> StdResult<bool> {
     let pvk = prepare_verifying_key(&vk.0);
     
-    verify_proof(&pvk, &proof.proof, &proof.public_inputs)
+    Groth16::<Bn254>::verify_proof(&pvk, &proof.proof, &proof.public_inputs)
         .map_err(|e| StdError::generic_err(format!("Proof verification failed: {}", e)))
 }
 
