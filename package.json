@@ -3,6 +3,16 @@
   "version": "1.0.0",
   "description": "Privacy mixer for Juno blockchain",
   "dependencies": {
-    "circomlib": "^2.0.0"
-  }
-} 
+    "@cosmjs/cosmwasm-stargate": "^0.33.0",
+    "@cosmjs/proto-signing": "^0.33.0",
+    "circomlib": "^2.0.0",
+    "dotenv": "^16.4.7"
+  },
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

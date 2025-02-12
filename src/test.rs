@@ -16,7 +16,7 @@ mod tests {
     use hex;
 
     const DENOM: &str = "ujuno";
-    const AMOUNT: u128 = 1_000_000;
+    const AMOUNT: u128 = 1_000_000; // 1 JUNO = 1,000,000 ujuno
 
     fn setup_contract() -> (
         OwnedDeps<MockStorage, MockApi, MockQuerier>,
@@ -27,7 +27,7 @@ mod tests {
         let info = mock_info("creator", &[]);
         let env = mock_env();
 
-        // Instantiate contract
+        // Instantiate contract with 1 JUNO denomination
         let msg = InstantiateMsg {
             denomination: Coin {
                 denom: DENOM.to_string(),
@@ -35,7 +35,7 @@ mod tests {
             },
             merkle_tree_levels: 20,
         };
-
+        
         let res = instantiate(deps.as_mut(), env.clone(), info.clone(), msg).unwrap();
         assert_eq!(0, res.messages.len());
 
@@ -72,25 +72,18 @@ mod tests {
 
     #[test]
     fn test_deposit() {
-        let (mut deps, _info, env) = setup_contract();
+        let (mut deps, info, env) = setup_contract();
         
-        // Use a mock commitment instead of Note
-        let commitment = "mock_commitment".to_string();
-        
-        // Execute deposit
-        let msg = ExecuteMsg::Deposit {
-            commitment: commitment.clone(),
+        // Test depositing 1 JUNO
+        let msg = ExecuteMsg::Deposit { 
+            commitment: "test_commitment".to_string() 
         };
+        let deposit_info = mock_info("depositor", &[Coin {
+            denom: DENOM.to_string(),
+            amount: Uint128::from(AMOUNT),
+        }]);
         
-        let deposit_info = mock_info(
-            "depositor",
-            &[Coin {
-                denom: DENOM.to_string(),
-                amount: Uint128::from(AMOUNT),
-            }],
-        );
-
-        let res = execute(deps.as_mut(), env.clone(), deposit_info, msg).unwrap();
+        let res = execute(deps.as_mut(), env, deposit_info, msg).unwrap();
 
         // Verify deposit response
         assert_eq!(res.attributes.len(), 3);
@@ -100,7 +93,7 @@ mod tests {
         );
         assert_eq!(
             res.attributes.iter().find(|attr| attr.key == "commitment").unwrap().value,
-            commitment
+            "test_commitment"
         );
     }
 
