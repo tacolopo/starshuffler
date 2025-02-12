@@ -1,13 +1,15 @@
 import { useCallback, useState } from 'react';
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
-import { Note, MixerConfig, Proof } from '../types/Mixer';
+import { Note } from '../types/Mixer';
+import { MixerConfig } from '../types';
+import { Proof } from '../types/Mixer';
 
-export function useMixer(contractAddress: string, client?: SigningCosmWasmClient) {
+export function useMixer(config: MixerConfig) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string>();
 
     const deposit = useCallback(async (amount: string, denom: string) => {
-        if (!client) return;
+        if (!config.client) return;
         setLoading(true);
         try {
             // Generate note
@@ -17,19 +19,19 @@ export function useMixer(contractAddress: string, client?: SigningCosmWasmClient
             }).then(res => res.json());
 
             // Execute deposit
-            const result = await client.execute(
-                contractAddress,
-                {
+            const result = await config.client.execute(
+                config.contractAddress,
+                JSON.stringify({
                     deposit: {
                         commitment: note.commitment,
-                    },
-                },
-                'auto',
-                '',
+                    }
+                }),
                 [{
                     amount,
                     denom,
                 }],
+                "auto",
+                ""
             );
 
             return { note, txHash: result.transactionHash };
@@ -38,23 +40,25 @@ export function useMixer(contractAddress: string, client?: SigningCosmWasmClient
         } finally {
             setLoading(false);
         }
-    }, [client, contractAddress]);
+    }, [config.client, config.contractAddress]);
 
     const withdraw = useCallback(async (note: Note, proof: Proof) => {
-        if (!client) return;
+        if (!config.client) return;
         setLoading(true);
         try {
-            const result = await client.execute(
-                contractAddress,
-                {
+            const result = await config.client.execute(
+                config.contractAddress,
+                JSON.stringify({
                     withdraw: {
                         nullifier_hash: proof.nullifierHash,
                         root: proof.root,
                         proof: proof.proof,
                         recipient: note.recipient,
-                    },
-                },
-                'auto',
+                    }
+                }),
+                [],
+                "auto",
+                ""
             );
 
             return { txHash: result.transactionHash };
@@ -63,7 +67,7 @@ export function useMixer(contractAddress: string, client?: SigningCosmWasmClient
         } finally {
             setLoading(false);
         }
-    }, [client, contractAddress]);
+    }, [config.client, config.contractAddress]);
 
     return { deposit, withdraw, loading, error };
 } 

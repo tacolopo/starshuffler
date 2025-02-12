@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useMixer } from '../hooks/useMixer';
+import { MixerConfig } from '../types';
 
-export function WithdrawForm() {
-    const { withdraw, loading } = useMixer();
+export function WithdrawForm({ config }: { config: MixerConfig }) {
+    const { withdraw, loading } = useMixer(config);
     const [noteString, setNoteString] = useState('');
     const [status, setStatus] = useState('');
 

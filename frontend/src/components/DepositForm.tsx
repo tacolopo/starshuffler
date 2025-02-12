@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useMixer } from '../hooks/useMixer';
+import { MixerConfig, Note } from '../types';
+import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 
 export function DepositForm({ config }: { config: MixerConfig }) {
-    const { deposit, loading } = useMixer();
+    const { deposit, loading } = useMixer(config);
     const [recipient, setRecipient] = useState('');
-    const [note, setNote] = useState<Note>();
+    const [note, setNote] = useState<Note | undefined>(undefined);
 
     const handleDeposit = async (e: React.FormEvent) => {
         e.preventDefault();

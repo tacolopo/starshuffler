@@ -6,7 +6,10 @@
     "@cosmjs/cosmwasm-stargate": "^0.33.0",
     "@cosmjs/proto-signing": "^0.33.0",
     "circomlib": "^2.0.0",
-    "dotenv": "^16.4.7"
+    "dotenv": "^16.4.7",
+    "express-rate-limit": "^7.5.0",
+    "ioredis": "^5.5.0",
+    "rate-limit-redis": "^4.2.0"
   },
   "main": "index.js",
   "scripts": {
@@ -14,5 +17,8 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "@types/express-rate-limit": "^5.1.3"
+  }
 }
