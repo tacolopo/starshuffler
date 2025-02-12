@@ -13,7 +13,7 @@ export function WithdrawForm({ config }: { config: MixerConfig }) {
             const note = JSON.parse(noteString);
             
             // Generate proof through relayer
-            const proofResult = await fetch('/api/generate-proof', {
+            const proofResult = await fetch(`${process.env.NEXT_PUBLIC_RELAYER_URL}/generate-proof`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ note }),
@@ -24,7 +24,7 @@ export function WithdrawForm({ config }: { config: MixerConfig }) {
             }
 
             // Submit withdrawal through relayer
-            const result = await fetch('/api/relay-withdrawal', {
+            const result = await fetch(`${process.env.NEXT_PUBLIC_RELAYER_URL}/relay-withdrawal`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
