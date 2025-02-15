@@ -10,32 +10,24 @@ use ark_serialize::CanonicalDeserialize;
 
 use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, ConfigResponse};
-use crate::state::{Config, CONFIG, NULLIFIERS, MERKLE_TREE, COMMITMENTS, VERIFYING_KEY_STORE};
-use crate::zk_snark::{MixerVerifyingKey, MixerProof, verify_withdrawal};
+use crate::state::{Config, CONFIG, NULLIFIERS, MERKLE_TREE, COMMITMENTS, Verifier, VERIFIER};
+use crate::zk_snark::{MixerProof, verify_withdrawal};
 
 const CONTRACT_NAME: &str = "crates.io:juno-privacy-mixer";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-// Verifying key for the zk-SNARK circuit
-const VERIFYING_KEY: &[u8] = include_bytes!("../src/verification_key/verification_key.bin");
-
-// Add a function to initialize the verifying key
-fn init_verifying_key(deps: &mut DepsMut) -> StdResult<()> {
-    let vk = MixerVerifyingKey::new(VERIFYING_KEY)
-        .map_err(|e| StdError::generic_err(format!("Invalid verifying key: {}", e)))?;
-    VERIFYING_KEY_STORE.save(deps.storage, &vk)?;
-    Ok(())
-}
-
 #[cfg_attr(not(feature = "library"), entry_point)]
 pub fn instantiate(
-    mut deps: DepsMut,
+    deps: DepsMut,
     _env: Env,
     info: MessageInfo,
     msg: InstantiateMsg,
 ) -> Result<Response, ContractError> {
     set_contract_version(deps.storage, CONTRACT_NAME, CONTRACT_VERSION)?;
-    init_verifying_key(&mut deps)?;
+    
+    // Initialize verifier with compile-time verification key
+    let verifier = Verifier::new();
+    VERIFIER.save(deps.storage, &verifier)?;
 
     let config = Config {
         denomination: msg.denomination,
@@ -123,7 +115,7 @@ pub fn execute_withdraw(
     }
 
     // Load verifying key
-    let vk = VERIFYING_KEY_STORE.load(deps.storage)?;
+    let verifier = VERIFIER.load(deps.storage)?;
 
     // Convert proof from hex
     let proof_bytes = hex::decode(&proof[0])
@@ -138,6 +130,7 @@ pub fn execute_withdraw(
     };
 
     // Verify the proof
+    let vk = verifier.to_verifying_key()?;
     verify_withdrawal(&vk, &mixer_proof)?;
     
     // Mark nullifier as used

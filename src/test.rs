@@ -72,7 +72,7 @@ mod tests {
 
     #[test]
     fn test_deposit() {
-        let (mut deps, info, env) = setup_contract();
+        let (mut deps, _info, env) = setup_contract();
         
         // Test depositing 1 JUNO
         let msg = ExecuteMsg::Deposit { 
