@@ -1,34 +1,34 @@
 pragma circom 2.0.0;
 
-include "circomlib/circuits/poseidon.circom";
-include "circomlib/circuits/mux1.circom";
+include "../node_modules/circomlib/circuits/poseidon.circom";
+include "../node_modules/circomlib/circuits/mux1.circom";
 
-template MerkleProof(nLevels) {
+template MerkleProof(levels) {
     signal input leaf;
-    signal input pathElements[nLevels];
-    signal input pathIndices[nLevels];
+    signal input pathElements[levels];
+    signal input pathIndices[levels];
     signal output root;
 
-    component selectors[nLevels];
-    component hashers[nLevels];
+    component poseidons[levels];
+    component mux[levels];
 
-    signal levelHashes[nLevels + 1];
+    signal levelHashes[levels + 1];
     levelHashes[0] <== leaf;
 
-    for (var i = 0; i < nLevels; i++) {
-        selectors[i] = Mux1();
-        selectors[i].c[0] <== levelHashes[i];
-        selectors[i].c[1] <== pathElements[i];
-        selectors[i].s <== pathIndices[i];
+    for (var i = 0; i < levels; i++) {
+        mux[i] = Mux1();
+        mux[i].c[0] <== levelHashes[i];
+        mux[i].c[1] <== pathElements[i];
+        mux[i].s <== pathIndices[i];
 
-        hashers[i] = Poseidon(2);
-        hashers[i].inputs[0] <== selectors[i].out;
-        hashers[i].inputs[1] <== pathElements[i];
+        poseidons[i] = Poseidon(2);
+        poseidons[i].inputs[0] <== mux[i].out;
+        poseidons[i].inputs[1] <== pathElements[i];
 
-        levelHashes[i + 1] <== hashers[i].out;
+        levelHashes[i + 1] <== poseidons[i].out;
     }
 
-    root <== levelHashes[nLevels];
+    root <== levelHashes[levels];
 }
 
 component main = MerkleProof(20); 

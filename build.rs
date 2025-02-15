@@ -5,6 +5,7 @@ use std::path::Path;
 fn main() {
     // Skip circuit compilation when running in the optimizer container
     if env::var("DOCKER_OPTIMIZER").is_ok() {
+        println!("cargo:warning=Running in Docker optimizer - skipping circuit compilation");
         return;
     }
 

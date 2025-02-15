@@ -19,4 +19,11 @@ circuit/verification_key.*
 # Generated verification keys
 src/verification_key/
 **/verification_key.bin
-**/verification_key.json .env
+**/verification_key.json
+.env
+
+# Frontend environment files
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
