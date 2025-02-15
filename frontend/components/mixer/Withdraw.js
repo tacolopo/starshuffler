@@ -66,34 +66,21 @@ const Withdraw = ({ client, contractAddress }) => {
         throw new Error('No account found. Please check your wallet connection');
       }
       
+      // Get the current root
+      const rootResponse = await client.queryContractSmart(contractAddress, {
+        get_merkle_root: {}
+      });
+      console.log('Current root:', rootResponse);
+
       // Generate nullifier hash using poseidon
       const secretBigInt = BigInt('0x' + deposit.secret);
       const nullifierHash = poseidon.F.toString(poseidon([secretBigInt]));
 
-      console.log('Withdrawal preparation:', {
-        secret: deposit.secret,
-        nullifierHash,
-        recipient: recipientAddress
-      });
-
-      // Get current Merkle root from contract
-      console.log('Querying contract...');
-      
-      // First get the config
-      const configResponse = await client.queryContractSmart(contractAddress, {
-        get_config: {}
-      });
-      console.log('Contract config:', configResponse);
-
-      // Use the commitment as the root
-      const root = deposit.commitment;
-      console.log('Using commitment as root:', root);
-
       // Generate ZK proof
       const proof = await generateProof(
         deposit.secret,
-        root,
-        nullifierHash,
+        deposit.commitment,
+        [deposit.commitment], // Just use our commitment for now
         recipientAddress
       );
 
@@ -101,7 +88,7 @@ const Withdraw = ({ client, contractAddress }) => {
       const msg = {
         withdraw: {
           proof: proof,
-          root: root,
+          root: rootResponse.root, // Use the root from contract response
           nullifier_hash: nullifierHash,
           recipient: recipientAddress,
         },
