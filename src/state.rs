@@ -43,7 +43,4 @@ pub const NULLIFIERS: Map<String, bool> = Map::new("nullifiers");
 pub const MERKLE_TREE: Map<String, String> = Map::new("merkle_tree");
 
 // Store the commitments for the Merkle tree
-pub const COMMITMENTS: Map<String, bool> = Map::new("commitments");
-
-// Store the verifying key
-pub const VERIFYING_KEY_STORE: Item<MixerVerifyingKey> = Item::new("verifying_key"); 
+pub const COMMITMENTS: Map<String, bool> = Map::new("commitments"); 
