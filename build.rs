@@ -5,7 +5,13 @@ use std::path::Path;
 fn main() {
     // Skip circuit compilation when running in the optimizer container
     if env::var("DOCKER_OPTIMIZER").is_ok() {
-        println!("cargo:warning=Running in Docker optimizer - skipping circuit compilation");
+        println!("cargo:warning=Running in Docker optimizer - using pre-generated verification key");
+        // Copy the verification key to the output directory
+        let out_dir = env::var("OUT_DIR").unwrap();
+        std::fs::copy(
+            "src/verification_key/verification_key.json",
+            format!("{}/verification_key.json", out_dir)
+        ).expect("Failed to copy verification key");
         return;
     }
 
