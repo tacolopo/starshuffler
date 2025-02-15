@@ -16,7 +16,7 @@ import Deposit from '../components/mixer/Deposit';
 import Withdraw from '../components/mixer/Withdraw';
 
 // Contract address on Juno testnet
-const CONTRACT_ADDRESS = "your_contract_address_here";
+const CONTRACT_ADDRESS = "juno1dasvu449cxxedsm76cx6pxkyk6yq404efc6xnt4guce8apxxg6wssg5jak";
 
 export default function Home() {
   const [walletData, setWalletData] = useState(null);
