@@ -3,7 +3,6 @@ use cw_storage_plus::{Item, Map};
 use serde::{Serialize, Deserialize};
 use crate::zk_snark::MixerVerifyingKey;
 use schemars::JsonSchema;
-use hex;
 
 #[derive(Serialize, Deserialize, Clone, Debug, JsonSchema)]
 pub struct Verifier {
@@ -19,9 +18,7 @@ impl Verifier {
     }
 
     pub fn to_verifying_key(&self) -> StdResult<MixerVerifyingKey> {
-        let vk_bytes = hex::decode(&self.vk_json)
-            .map_err(|e| StdError::generic_err(format!("Invalid verification key hex: {}", e)))?;
-        MixerVerifyingKey::new(&vk_bytes)
+        MixerVerifyingKey::new(self.vk_json.as_bytes())
             .map_err(|e| StdError::generic_err(format!("Invalid verifying key: {}", e)))
     }
 }

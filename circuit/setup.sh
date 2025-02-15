@@ -11,9 +11,6 @@ mkdir -p build/contract
 # Create circuits directory if it doesn't exist
 mkdir -p circuits
 
-# Removed redundant copy command
-# echo "Copying merkleproof circuit..."
-# cp circuits/merkleproof.circom circuits/merkleproof.circom
 echo "Using existing merkleproof circuit in circuits folder..."
 
 echo "Installing dependencies..."
@@ -36,11 +33,4 @@ snarkjs groth16 setup merkleproof.r1cs pot16_final.ptau merkleproof_0.zkey
 snarkjs zkey contribute merkleproof_0.zkey merkleproof_final.zkey --name="1st contribution" -v
 snarkjs zkey export verificationkey merkleproof_final.zkey verification_key.json
 
-echo "Setup complete!"
-
-# Copy the verification key and convert it
-mkdir -p ../../../src/verification_key
-cp verification_key.json ../../../src/verification_key/verification_key.json
-cd ../../..
-echo "Converting verification key to Arkworks format..."
-cargo run --bin convert_verification_key 
+echo "Setup complete!" 

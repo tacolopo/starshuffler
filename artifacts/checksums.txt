@@ -1,1 +1,1 @@
-555b29ea41f50fc9a7329ff9a3f36cd22627cc0eab236e69696e90bb697d3ea3  juno_privacy_mixer.wasm
+b772b9d92ef64668f0306d722375fddc8eab1f0ef3d7e9d3a941d0e75f67753e  juno_privacy_mixer.wasm
