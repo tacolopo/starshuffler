@@ -1,205 +1,128 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Box,
   Button,
   Text,
   VStack,
   useToast,
-  Select,
   Input,
   FormControl,
   FormLabel,
-  Alert,
-  AlertIcon,
 } from '@chakra-ui/react';
-import { generateProof } from '../../utils/zkProof';
-import { config } from '../../config';
 import { usePoseidon } from '../PoseidonProvider';
-import { createMerkleProof } from '../../utils/merkleTree';
 
 const Withdraw = ({ client, contractAddress }) => {
-  const [isWithdrawing, setIsWithdrawing] = useState(false);
-  const [deposits, setDeposits] = useState([]);
-  const [selectedDeposit, setSelectedDeposit] = useState('');
+  const [secret, setSecret] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
+  const [isWithdrawing, setIsWithdrawing] = useState(false);
   const poseidon = usePoseidon();
   const toast = useToast();
 
-  // Load deposits from localStorage when component mounts
-  useEffect(() => {
-    try {
-      const storedDeposits = JSON.parse(localStorage.getItem('deposits') || '[]');
-      console.log('Loaded deposits:', storedDeposits);
-      setDeposits(storedDeposits);
-    } catch (error) {
-      console.error('Error loading deposits:', error);
-      toast({
-        title: 'Error Loading Deposits',
-        description: 'Failed to load your previous deposits',
-        status: 'error',
-        duration: 5000,
-        isClosable: true,
-      });
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const rawSecret = e.target.result.trim();
+          setSecret(rawSecret);
+        } catch (error) {
+          toast({
+            title: 'Error reading file',
+            description: 'Could not read the secret file',
+            status: 'error',
+            duration: 5000,
+          });
+        }
+      };
+      reader.readAsText(file);
     }
-  }, [toast]);
+  };
 
   const handleWithdraw = async () => {
+    if (!secret || !recipientAddress) return;
+
     try {
       setIsWithdrawing(true);
-
-      if (!client) {
-        throw new Error('Wallet is not connected');
-      }
-
-      if (!selectedDeposit || !recipientAddress) {
-        throw new Error('Please select a deposit and enter recipient address');
-      }
-
-      const deposit = deposits.find(d => d.secret === selectedDeposit);
-      if (!deposit) {
-        throw new Error('Selected deposit not found');
-      }
-
-      // Get the connected wallet's address for the fee payer
-      const [account] = await client.signer.getAccounts();
-      if (!account) {
-        throw new Error('No account found. Please check your wallet connection');
-      }
-
-      // Generate nullifier hash using poseidon
-      const secretBigInt = BigInt('0x' + deposit.secret);
+      
+      // Generate nullifier hash from secret
+      const secretBigInt = BigInt('0x' + secret);
       const nullifierHash = poseidon.F.toString(poseidon([secretBigInt]));
 
-      // Generate Merkle proof
-      const merkleProof = await createMerkleProof(deposit.commitment, [deposit.commitment]);
-      console.log('Generated Merkle proof:', merkleProof);
-
-      // Generate ZK proof
-      const proof = await generateProof(
-        deposit.secret,
-        deposit.commitment,
-        [deposit.commitment], // Just use our commitment for now
-        recipientAddress
-      );
-
-      // Prepare the withdrawal message
-      const msg = {
-        withdraw: {
-          proof: proof,
-          root: merkleProof.root,
-          nullifier_hash: nullifierHash,
-          recipient: recipientAddress,
-        },
-      };
-
-      console.log('Withdrawal message:', msg);
-
-      const fee = {
-        amount: [{
-          denom: config.CHAIN_CONFIG.gasPrice.denom,
-          amount: "500000", // 0.5 JUNO for gas
-        }],
-        gas: "300000",
-      };
-
-      // Execute withdrawal transaction
-      const result = await client.execute(
-        account.address,
-        contractAddress,
-        msg,
-        fee,
-        "Withdraw from privacy mixer"
-      );
-
-      toast({
-        title: 'Withdrawal Successful!',
-        description: `Transaction hash: ${result.transactionHash}`,
-        status: 'success',
-        duration: 5000,
-        isClosable: true,
+      // First, get the proof from the relayer
+      const proofResponse = await fetch(`${process.env.NEXT_PUBLIC_RELAYER_URL}/relay-withdrawal`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          note: {
+            secret: secret,
+            recipient: recipientAddress
+          }
+        })
       });
 
-      // Remove used deposit from storage
-      const updatedDeposits = deposits.filter(d => d.secret !== selectedDeposit);
-      localStorage.setItem('deposits', JSON.stringify(updatedDeposits));
-      setDeposits(updatedDeposits);
-      setSelectedDeposit('');
-      setRecipientAddress('');
+      if (!proofResponse.ok) {
+        const error = await proofResponse.json();
+        throw new Error(error.details || error.error || 'Failed to process withdrawal');
+      }
 
+      const result = await proofResponse.json();
+
+      toast({
+        title: 'Withdrawal successful',
+        description: `Transaction hash: ${result.txHash}`,
+        status: 'success',
+        duration: 5000,
+      });
+
+      // Reset form
+      setSecret('');
+      setRecipientAddress('');
+      
     } catch (error) {
       console.error('Withdrawal error:', error);
       toast({
-        title: 'Withdrawal Failed',
+        title: 'Withdrawal failed',
         description: error.message,
         status: 'error',
         duration: 5000,
-        isClosable: true,
       });
     } finally {
       setIsWithdrawing(false);
     }
   };
 
-  if (!client) {
-    return (
-      <Box p={6} borderWidth={1} borderRadius="lg">
-        <Alert status="warning">
-          <AlertIcon />
-          Please connect your wallet to make a withdrawal
-        </Alert>
-      </Box>
-    );
-  }
-
   return (
-    <Box p={6} borderWidth={1} borderRadius="lg">
+    <Box p={4}>
       <VStack spacing={4} align="stretch">
-        <Text fontSize="xl" fontWeight="bold">
-          Withdraw Funds
-        </Text>
+        <FormControl>
+          <FormLabel>Upload Secret File</FormLabel>
+          <Input
+            type="file"
+            accept=".txt"
+            onChange={handleFileUpload}
+            p={1}
+          />
+        </FormControl>
 
-        {deposits.length === 0 ? (
-          <Alert status="info">
-            <AlertIcon />
-            No deposits found. Make a deposit first to enable withdrawals.
-          </Alert>
-        ) : (
-          <>
-            <FormControl>
-              <FormLabel>Select Deposit</FormLabel>
-              <Select
-                value={selectedDeposit}
-                onChange={(e) => setSelectedDeposit(e.target.value)}
-                placeholder="Select a deposit"
-              >
-                {deposits.map((deposit, index) => (
-                  <option key={deposit.secret} value={deposit.secret}>
-                    Deposit {index + 1} - {new Date(deposit.timestamp).toLocaleString()}
-                  </option>
-                ))}
-              </Select>
-            </FormControl>
+        <FormControl>
+          <FormLabel>Recipient Address</FormLabel>
+          <Input
+            value={recipientAddress}
+            onChange={(e) => setRecipientAddress(e.target.value)}
+            placeholder="juno..."
+          />
+        </FormControl>
 
-            <FormControl>
-              <FormLabel>Recipient Address</FormLabel>
-              <Input
-                value={recipientAddress}
-                onChange={(e) => setRecipientAddress(e.target.value)}
-                placeholder="Enter recipient address"
-              />
-            </FormControl>
-
-            <Button
-              colorScheme="green"
-              onClick={handleWithdraw}
-              isLoading={isWithdrawing}
-              loadingText="Withdrawing..."
-              isDisabled={!selectedDeposit || !recipientAddress}
-            >
-              Withdraw
-            </Button>
-          </>
-        )}
+        <Button
+          colorScheme="blue"
+          onClick={handleWithdraw}
+          isLoading={isWithdrawing}
+          loadingText="Withdrawing..."
+          isDisabled={!secret || !recipientAddress}
+        >
+          Withdraw
+        </Button>
       </VStack>
     </Box>
   );

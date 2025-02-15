@@ -1,6 +1,6 @@
 use cosmwasm_std::entry_point;
 use cosmwasm_std::{
-    to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult, StdError,
+    to_json_binary, Binary, Deps, DepsMut, Env, MessageInfo, Response, StdResult,
     Uint128, ensure_eq, BankMsg,
 };
 use cw2::set_contract_version;
@@ -114,24 +114,34 @@ pub fn execute_withdraw(
         return Err(ContractError::NullifierAlreadyUsed {});
     }
 
-    // Load verifying key
+    // Load and validate verifier
     let verifier = VERIFIER.load(deps.storage)?;
+    let vk = verifier.to_verifying_key()
+        .map_err(|e| ContractError::ProofVerificationError { 
+            msg: format!("Failed to load verifying key: {}", e) 
+        })?;
 
-    // Convert proof from hex
+    // Convert proof from hex with better error handling
     let proof_bytes = hex::decode(&proof[0])
-        .map_err(|e| StdError::generic_err(format!("Invalid proof hex: {}", e)))?;
+        .map_err(|e| ContractError::ProofVerificationError { 
+            msg: format!("Invalid proof hex: {}", e) 
+        })?;
     
     let proof = Proof::deserialize_uncompressed(&proof_bytes[..])
-        .map_err(|e| StdError::generic_err(format!("Invalid proof format: {}", e)))?;
+        .map_err(|e| ContractError::ProofVerificationError { 
+            msg: format!("Invalid proof format: {}", e) 
+        })?;
 
     let mixer_proof = MixerProof {
         proof,
         public_inputs: vec![], // You'll need to implement conversion of root and nullifier_hash to Fr
     };
 
-    // Verify the proof
-    let vk = verifier.to_verifying_key()?;
-    verify_withdrawal(&vk, &mixer_proof)?;
+    // Verify the proof with detailed error
+    verify_withdrawal(&vk, &mixer_proof)
+        .map_err(|e| ContractError::ProofVerificationError { 
+            msg: format!("Proof verification failed: {}", e) 
+        })?;
     
     // Mark nullifier as used
     NULLIFIERS.save(deps.storage, nullifier_hash.clone(), &true)?;

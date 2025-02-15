@@ -49,7 +49,7 @@ export default function Home() {
               <TabPanel>
                 <Deposit
                   client={walletData.client}
-                  contractAddress={config.CONTRACT_ADDRESS}
+                  contractAddress={process.env.NEXT_PUBLIC_CONTRACT_ADDRESS}
                 />
               </TabPanel>
               <TabPanel>

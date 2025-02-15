@@ -13,85 +13,61 @@ const addressToNumber = (address) => {
   return BigInt('0x' + result);
 };
 
-// Helper function to pad hex strings to even length
-const padHex = (hexStr) => {
-  // Remove 0x prefix if present
-  let hex = hexStr.startsWith('0x') ? hexStr.slice(2) : hexStr;
-  // Add leading zero if odd length
-  if (hex.length % 2 !== 0) {
-    hex = '0' + hex;
-  }
-  return '0x' + hex;
+// Helper function to format a field element to 32 bytes in big-endian hex
+const formatFieldElement = (n) => {
+  let hex = BigInt(n).toString(16).padStart(64, '0');
+  if (hex.length % 2 !== 0) hex = '0' + hex;
+  return hex;
+};
+
+// Helper function to convert a hex string (without 0x) from big-endian to little-endian
+const toLEHex = (hexStr) => {
+  const bytes = hexStr.match(/.{2}/g);
+  return bytes.reverse().join('');
 };
 
 export const generateProof = async (secret, commitment, allCommitments, recipient) => {
   try {
-    console.log('Generating proof with inputs:', {
-      secret,
-      commitment,
-      recipient
-    });
-
+    console.log('Generating proof with inputs:', { secret, commitment, recipient });
     if (!secret) throw new Error('Secret is undefined');
     if (!commitment) throw new Error('Commitment is undefined');
     if (!recipient) throw new Error('Recipient is undefined');
 
-    // Convert secret to BigInt
     const secretBigInt = BigInt('0x' + secret);
-
-    // Generate Merkle proof
     console.log('Generating Merkle proof...');
     const merkleProof = await createMerkleProof(commitment, allCommitments);
     console.log('Merkle proof:', merkleProof);
 
-    // Input for the circuit - only include what the circuit expects
     const input = {
       leaf: secretBigInt.toString(),
       pathElements: merkleProof.pathElements,
       pathIndices: merkleProof.pathIndices
     };
-
     console.log('Circuit inputs:', input);
 
-    // Get the base URL for the current page
     const baseUrl = window.location.origin;
     const wasmPath = `${baseUrl}/merkleproof_js/merkleproof.wasm`;
     const zkeyPath = `${baseUrl}/merkleproof_final.zkey`;
-
     console.log('Loading circuit files from:', { wasmPath, zkeyPath });
 
-    // Generate the proof using the wasm and zkey URLs
-    const { proof, publicSignals } = await groth16.fullProve(
-      input,
-      wasmPath,
-      zkeyPath
-    );
-
+    const { proof, publicSignals } = await groth16.fullProve(input, wasmPath, zkeyPath);
     console.log('Generated proof:', proof);
     console.log('Public signals:', publicSignals);
 
-    // Convert the proof to hex strings with proper padding
-    const proofForContract = [
-      // Convert pi_a points to hex strings
-      proof.pi_a[0].toString(16),
-      proof.pi_a[1].toString(16),
-      // Convert pi_b points to hex strings (note the reversed order for each pair)
-      proof.pi_b[0][1].toString(16),
-      proof.pi_b[0][0].toString(16),
-      proof.pi_b[1][1].toString(16),
-      proof.pi_b[1][0].toString(16),
-      // Convert pi_c points to hex strings
-      proof.pi_c[0].toString(16),
-      proof.pi_c[1].toString(16)
-    ].map(x => {
-      if (x.startsWith('-')) {
-        return '-' + padHex(x.slice(1));
-      }
-      return padHex(x);
-    });
+    // Convert each proof element to little-endian hex string
+    const proofHex = [
+      toLEHex(formatFieldElement(proof.pi_a[0])),
+      toLEHex(formatFieldElement(proof.pi_a[1])),
+      toLEHex(formatFieldElement(proof.pi_b[0][0])),
+      toLEHex(formatFieldElement(proof.pi_b[0][1])),
+      toLEHex(formatFieldElement(proof.pi_b[1][0])),
+      toLEHex(formatFieldElement(proof.pi_b[1][1])),
+      toLEHex(formatFieldElement(proof.pi_c[0])),
+      toLEHex(formatFieldElement(proof.pi_c[1]))
+    ].join('');
 
-    console.log('Proof for contract:', proofForContract);
-    return proofForContract;
+    console.log('Proof hex:', proofHex);
+    return [proofHex];
   } catch (error) {
     console.error('Error generating proof:', error);
     throw error;

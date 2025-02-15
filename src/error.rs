@@ -27,6 +27,6 @@ pub enum ContractError {
     #[error("Failed to generate proof")]
     ProofGenerationError {},
 
-    #[error("Failed to verify proof")]
-    ProofVerificationError {},
+    #[error("Failed to verify proof: {msg}")]
+    ProofVerificationError { msg: String },
 } 

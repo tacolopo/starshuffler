@@ -2,7 +2,7 @@
 mod tests {
     use crate::contract::{execute, instantiate, query};
     use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg};
-    use crate::state::{Config, NULLIFIERS, VERIFYING_KEY_STORE};
+    use crate::state::{Config, NULLIFIERS, VERIFIER};
     use crate::error::ContractError;
     use crate::zk_snark::{MixerProof, verify_withdrawal};
     use ark_groth16::Proof;
@@ -256,7 +256,8 @@ mod tests {
         let (proof, _root, _nullifier_hash) = setup_test_proof();
         
         // Load verifying key
-        let vk = VERIFYING_KEY_STORE.load(&deps.storage).unwrap();
+        let verifier = VERIFIER.load(&deps.storage).unwrap();
+        let vk = verifier.to_verifying_key().unwrap();
         
         // Test proof verification
         let result = verify_withdrawal(&vk, &proof);
@@ -288,7 +289,7 @@ mod tests {
         ).unwrap_err();
         
         // Should fail with proof verification error
-        assert!(matches!(err, ContractError::ProofVerificationError {}));
+        assert!(matches!(err, ContractError::ProofVerificationError { msg: _ }));
     }
 
     #[test]
