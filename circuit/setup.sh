@@ -14,7 +14,7 @@ mkdir -p circuits
 echo "Using existing merkleproof circuit in circuits folder..."
 
 echo "Installing dependencies..."
-npm install circomlib snarkjs
+npm install circomlib snarkjs ts-node typescript @types/node
 
 echo "Compiling circuit..."
 circom circuits/merkleproof.circom \
@@ -32,5 +32,10 @@ cd build/circuits
 snarkjs groth16 setup merkleproof.r1cs pot16_final.ptau merkleproof_0.zkey
 snarkjs zkey contribute merkleproof_0.zkey merkleproof_final.zkey --name="1st contribution" -v
 snarkjs zkey export verificationkey merkleproof_final.zkey verification_key.json
+
+echo "Converting verification key formats..."
+# Convert the verification key to binary format
+cd ../.. # Return to circuit directory
+npx ts-node setup.ts
 
 echo "Setup complete!" 
