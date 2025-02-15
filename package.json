@@ -19,8 +19,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "deploy-contract": "ts-node scripts/deploy-contract.ts",
     "setup-circuit": "cd circuit && npm install && npm run setup",
-    "build-contract": "docker run --rm -v \"$(pwd)\":/code -v \"$(pwd)/src/verification_key:/code/src/verification_key\" --mount type=volume,source=\"$(basename \"$(pwd)\")_cache\",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.16.1",
-    "deploy": "npm run setup-circuit && npm run build-contract && npm run deploy-contract",
+    "convert-key": "cargo run --bin convert_verification_key",
+    "build-contract": "docker run --rm -e DOCKER_OPTIMIZER=1 -v \"$(pwd)\":/code -v \"$(pwd)/src/verification_key:/code/src/verification_key\" --mount type=volume,source=\"$(basename \"$(pwd)\")_cache\",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.16.1",
+    "deploy": "npm run setup-circuit && npm run convert-key && npm run build-contract && npm run deploy-contract",
     "setup": "ts-node circuit/setup.ts",
     "fix-key": "ts-node scripts/fix-verification-key.ts"
   },

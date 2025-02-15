@@ -1,17 +1,12 @@
 use std::process::Command;
 use std::env;
 use std::path::Path;
+use std::fs;
 
 fn main() {
     // Skip circuit compilation when running in the optimizer container
     if env::var("DOCKER_OPTIMIZER").is_ok() {
-        println!("cargo:warning=Running in Docker optimizer - using pre-generated verification key");
-        // Copy the verification key to the output directory
-        let out_dir = env::var("OUT_DIR").unwrap();
-        std::fs::copy(
-            "src/verification_key/verification_key.json",
-            format!("{}/verification_key.json", out_dir)
-        ).expect("Failed to copy verification key");
+        println!("cargo:warning=Running in Docker optimizer - skipping circuit compilation");
         return;
     }
 
@@ -23,8 +18,11 @@ fn main() {
         return;
     }
     
-    let out_dir = env::var("OUT_DIR").unwrap();
     let circuit_dir = Path::new("circuit/circuits");
+    let build_dir = Path::new("circuits/build");
+    
+    // Create build directory if it doesn't exist
+    fs::create_dir_all(build_dir).expect("Failed to create build directory");
     
     // Compile circuit
     let status = Command::new("circom")
@@ -34,7 +32,7 @@ fn main() {
             "--wasm",
             "--sym",
             "-o",
-            &out_dir,
+            build_dir.to_str().unwrap(),
         ])
         .current_dir(circuit_dir)
         .status()
@@ -49,9 +47,9 @@ fn main() {
         .args(&[
             "groth16",
             "setup",
-            &format!("{}/merkleproof.r1cs", out_dir),
+            &format!("{}/merkleproof.r1cs", build_dir.to_str().unwrap()),
             "circuit/build/circuits/pot16_final.ptau",
-            &format!("{}/merkleproof_0.zkey", out_dir),
+            &format!("{}/merkleproof_0.zkey", build_dir.to_str().unwrap()),
         ])
         .status()
         .expect("Failed to generate initial zkey");
@@ -60,22 +58,25 @@ fn main() {
         .args(&[
             "zkey",
             "contribute",
-            &format!("{}/merkleproof_0.zkey", out_dir),
-            &format!("{}/merkleproof_final.zkey", out_dir),
+            &format!("{}/merkleproof_0.zkey", build_dir.to_str().unwrap()),
+            &format!("{}/merkleproof_final.zkey", build_dir.to_str().unwrap()),
             "--name=1st contribution",
             "-v",
         ])
         .status()
         .expect("Failed to contribute to zkey");
 
+    // Export verification key directly to JSON format
     Command::new("snarkjs")
         .args(&[
             "zkey",
             "export",
             "verificationkey",
-            &format!("{}/merkleproof_final.zkey", out_dir),
-            &format!("{}/verification_key.json", out_dir),
+            &format!("{}/merkleproof_final.zkey", build_dir.to_str().unwrap()),
+            &format!("{}/verification_key.json", build_dir.to_str().unwrap()),
         ])
         .status()
         .expect("Failed to export verification key");
+
+    println!("cargo:warning=Circuit compilation and key generation completed successfully");
 } 

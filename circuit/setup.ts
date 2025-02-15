@@ -12,7 +12,7 @@ async function setupCircuit() {
         rmSync('package-lock.json', { force: true });
 
         console.log("Creating build directories...");
-        mkdirSync(path.join(__dirname, 'build/circuits'), { recursive: true });
+    mkdirSync(path.join(__dirname, 'build/circuits'), { recursive: true });
         mkdirSync(path.join(__dirname, 'build/contract'), { recursive: true });
         mkdirSync(path.join(__dirname, 'circuits'), { recursive: true });
 

@@ -17,7 +17,7 @@ const CONTRACT_NAME: &str = "crates.io:juno-privacy-mixer";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 // Verifying key for the zk-SNARK circuit
-const VERIFYING_KEY: &[u8] = include_bytes!("../circuit/build/circuits/verification_key.json");
+const VERIFYING_KEY: &[u8] = include_bytes!("../src/verification_key/verification_key.bin");
 
 // Add a function to initialize the verifying key
 fn init_verifying_key(deps: &mut DepsMut) -> StdResult<()> {

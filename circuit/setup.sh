@@ -38,6 +38,9 @@ snarkjs zkey export verificationkey merkleproof_final.zkey verification_key.json
 
 echo "Setup complete!"
 
-# Copy the verification key (while in build/circuits directory)
+# Copy the verification key and convert it
 mkdir -p ../../../src/verification_key
-cp verification_key.json ../../../src/verification_key/verification_key.json 
+cp verification_key.json ../../../src/verification_key/verification_key.json
+cd ../../..
+echo "Converting verification key to Arkworks format..."
+cargo run --bin convert_verification_key 
