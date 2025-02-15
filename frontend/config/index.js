@@ -5,6 +5,10 @@ export const config = {
     chainId: "juno-1",
     rpcEndpoint: "https://rpc-juno.itastakers.com:443/",
     prefix: "juno",
+    gasPrice: {
+      amount: 0.025,
+      denom: "ujuno"
+    }
   },
   DEPOSIT_AMOUNT: {
     denom: "ujuno",

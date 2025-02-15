@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Button, Text, useToast } from '@chakra-ui/react';
-import { DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
 import { config } from '../config';
 
@@ -17,28 +16,46 @@ const WalletConnect = ({ onConnect }) => {
         throw new Error("Please install Keplr extension");
       }
 
-      // Request connection to Juno testnet
+      // Enable Keplr for the chain
       await window.keplr.enable(config.CHAIN_CONFIG.chainId);
       
-      const offlineSigner = window.keplr.getOfflineSigner(config.CHAIN_CONFIG.chainId);
-      const accounts = await offlineSigner.getAccounts();
+      // Get the offlineSigner for this chainId
+      const offlineSigner = await window.keplr.getOfflineSignerAuto(config.CHAIN_CONFIG.chainId);
       
-      // Create signing client
+      // Get the user's account
+      const accounts = await offlineSigner.getAccounts();
+      if (!accounts || accounts.length === 0) {
+        throw new Error("No accounts found");
+      }
+
+      // Create signing client with the offlineSigner
       const client = await SigningCosmWasmClient.connectWithSigner(
         config.CHAIN_CONFIG.rpcEndpoint,
-        offlineSigner
+        offlineSigner,
+        { gasPrice: config.CHAIN_CONFIG.gasPrice }
       );
 
-      onConnect({ client, address: accounts[0].address });
+      // Verify we can get accounts from the signer
+      const signerAccounts = await offlineSigner.getAccounts();
+      if (!signerAccounts || signerAccounts.length === 0) {
+        throw new Error("Failed to get accounts from signer");
+      }
+
+      onConnect({ 
+        client, 
+        address: accounts[0].address,
+        signer: offlineSigner 
+      });
       
       toast({
         title: "Connected!",
-        description: "Your wallet has been connected successfully",
+        description: `Connected to ${accounts[0].address.slice(0, 8)}...${accounts[0].address.slice(-8)}`,
         status: "success",
         duration: 5000,
         isClosable: true,
       });
     } catch (error) {
+      console.error("Connection error:", error);
       toast({
         title: "Connection Failed",
         description: error.message,

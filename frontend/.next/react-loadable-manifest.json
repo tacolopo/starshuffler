@@ -1,6 +1,8 @@
 {
-  "../components/mixer/Deposit.js -> circomlibjs": {
-    "id": "../components/mixer/Deposit.js -> circomlibjs",
-    "files": []
+  "../components/PoseidonProvider.js -> circomlibjs": {
+    "id": "../components/PoseidonProvider.js -> circomlibjs",
+    "files": [
+      "static/chunks/node_modules_circomlibjs_main_js.js"
+    ]
   }
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Box,
   Button,
@@ -8,26 +8,18 @@ import {
   Input,
   FormControl,
   FormLabel,
+  Alert,
+  AlertIcon,
+  HStack,
 } from '@chakra-ui/react';
 import { config } from '../../config';
+import { usePoseidon } from '../PoseidonProvider';
 
 const Deposit = ({ client, contractAddress }) => {
   const [isDepositing, setIsDepositing] = useState(false);
   const [secret, setSecret] = useState('');
-  const [poseidon, setPoseidon] = useState(null);
+  const poseidon = usePoseidon();
   const toast = useToast();
-
-  // Initialize poseidon
-  useEffect(() => {
-    const initPoseidon = async () => {
-      if (typeof window !== 'undefined') {
-        const { buildPoseidon } = await import('circomlibjs');
-        const poseidonInstance = await buildPoseidon();
-        setPoseidon(poseidonInstance);
-      }
-    };
-    initPoseidon();
-  }, []);
 
   const generateRandomSecret = () => {
     const randomBytes = new Uint8Array(32);
@@ -36,16 +28,44 @@ const Deposit = ({ client, contractAddress }) => {
     setSecret(secret);
   };
 
+  const downloadSecret = () => {
+    if (!secret) return;
+    
+    const blob = new Blob([secret], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `mixer-secret-${Date.now()}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+
+    toast({
+      title: 'Secret Downloaded',
+      description: 'Keep this file safe! You will need it to withdraw your funds.',
+      status: 'success',
+      duration: 5000,
+      isClosable: true,
+    });
+  };
+
   const handleDeposit = async () => {
     try {
-      if (!poseidon) {
-        throw new Error('Poseidon hash function not initialized');
-      }
-
       setIsDepositing(true);
+
+      if (!client) {
+        throw new Error('Wallet is not connected');
+      }
 
       if (!secret) {
         throw new Error('Please generate a secret first');
+      }
+
+      // Get the connected wallet's address
+      const [account] = await client.signer.getAccounts();
+      if (!account) {
+        throw new Error('No account found. Please check your wallet connection');
       }
 
       // Convert secret to bigInt and calculate commitment
@@ -55,23 +75,35 @@ const Deposit = ({ client, contractAddress }) => {
 
       console.log('Secret:', secret);
       console.log('Commitment:', commitment);
+      console.log('Sender Address:', account.address);
 
-      // Execute deposit transaction
-      const result = await client.execute(
-        contractAddress,
-        {
-          deposit: {
-            commitment: commitment,
-          },
+      // Execute deposit transaction with correct parameter structure
+      const msg = {
+        deposit: {
+          commitment: commitment,
         },
-        "auto",
-        undefined,
+      };
+
+      const fee = {
+        amount: [{
+          denom: config.DEPOSIT_AMOUNT.denom,
+          amount: "500000", // 0.5 JUNO for gas
+        }],
+        gas: "200000",
+      };
+
+      const result = await client.execute(
+        account.address,
+        contractAddress,
+        msg,
+        fee,
+        "Deposit to privacy mixer",
         [config.DEPOSIT_AMOUNT]
       );
 
       toast({
         title: 'Deposit Successful!',
-        description: `Transaction hash: ${result.transactionHash}`,
+        description: 'Please download your secret if you haven\'t already.',
         status: 'success',
         duration: 5000,
         isClosable: true,
@@ -101,6 +133,17 @@ const Deposit = ({ client, contractAddress }) => {
     }
   };
 
+  if (!client) {
+    return (
+      <Box p={6} borderWidth={1} borderRadius="lg">
+        <Alert status="warning">
+          <AlertIcon />
+          Please connect your wallet to make a deposit
+        </Alert>
+      </Box>
+    );
+  }
+
   return (
     <Box p={6} borderWidth={1} borderRadius="lg">
       <VStack spacing={4} align="stretch">
@@ -121,20 +164,32 @@ const Deposit = ({ client, contractAddress }) => {
           Deposit amount: {parseInt(config.DEPOSIT_AMOUNT.amount) / 1000000} {config.DEPOSIT_AMOUNT.denom.replace('u', '').toUpperCase()}
         </Text>
 
-        <Button
-          colorScheme="blue"
-          onClick={generateRandomSecret}
-          isDisabled={isDepositing || !poseidon}
-        >
-          Generate Random Secret
-        </Button>
+        <HStack spacing={4}>
+          <Button
+            colorScheme="blue"
+            onClick={generateRandomSecret}
+            isDisabled={isDepositing}
+            flex="1"
+          >
+            Generate Random Secret
+          </Button>
+          
+          <Button
+            colorScheme="teal"
+            onClick={downloadSecret}
+            isDisabled={!secret}
+            flex="1"
+          >
+            Download Secret
+          </Button>
+        </HStack>
 
         <Button
           colorScheme="green"
           onClick={handleDeposit}
           isLoading={isDepositing}
           loadingText="Depositing..."
-          isDisabled={!secret || !poseidon}
+          isDisabled={!secret}
         >
           Deposit
         </Button>

@@ -2,13 +2,33 @@ import { groth16 } from 'snarkjs';
 
 export const generateProof = async (secret, root, nullifierHash, recipient) => {
   try {
+    console.log('Generating proof with inputs:', {
+      secret,
+      root,
+      nullifierHash,
+      recipient
+    });
+
+    if (!secret) throw new Error('Secret is undefined');
+    if (!root) throw new Error('Root is undefined');
+    if (!nullifierHash) throw new Error('NullifierHash is undefined');
+    if (!recipient) throw new Error('Recipient is undefined');
+
+    // Convert inputs to appropriate format
+    const secretBigInt = BigInt('0x' + secret);
+    const rootBigInt = BigInt(root);
+    const nullifierHashBigInt = BigInt(nullifierHash);
+    const recipientBigInt = BigInt(recipient.replace('juno', '0x'));
+
     // Input for the circuit
     const input = {
-      secret: secret,
-      root: root,
-      nullifierHash: nullifierHash,
-      recipient: recipient,
+      secret: secretBigInt.toString(),
+      root: rootBigInt.toString(),
+      nullifierHash: nullifierHashBigInt.toString(),
+      recipient: recipientBigInt.toString(),
     };
+
+    console.log('Circuit inputs:', input);
 
     // Load the circuit
     const { proof, publicSignals } = await groth16.fullProve(
@@ -16,6 +36,9 @@ export const generateProof = async (secret, root, nullifierHash, recipient) => {
       "/circuits/merkleproof.wasm",
       "/circuits/merkleproof_final.zkey"
     );
+
+    console.log('Generated proof:', proof);
+    console.log('Public signals:', publicSignals);
 
     // Convert the proof to the format expected by the contract
     const proofForContract = [
@@ -32,6 +55,6 @@ export const generateProof = async (secret, root, nullifierHash, recipient) => {
     return proofForContract;
   } catch (error) {
     console.error('Error generating proof:', error);
-    throw new Error('Failed to generate zero-knowledge proof');
+    throw error;
   }
 }; 

@@ -1,9 +1,12 @@
 import { ChakraProvider } from '@chakra-ui/react'
+import { PoseidonProvider } from '../components/PoseidonProvider'
 
 function MyApp({ Component, pageProps }) {
   return (
     <ChakraProvider>
-      <Component {...pageProps} />
+      <PoseidonProvider>
+        <Component {...pageProps} />
+      </PoseidonProvider>
     </ChakraProvider>
   )
 }

@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST="{\"../components/mixer/Deposit.js -> circomlibjs\":{\"id\":\"../components/mixer/Deposit.js -> circomlibjs\",\"files\":[]}}"
+self.__REACT_LOADABLE_MANIFEST="{\"../components/PoseidonProvider.js -> circomlibjs\":{\"id\":\"../components/PoseidonProvider.js -> circomlibjs\",\"files\":[\"static/chunks/node_modules_circomlibjs_main_js.js\"]}}"
