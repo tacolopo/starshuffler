@@ -13,6 +13,8 @@ import {
 import { utils } from 'circomlib';
 import { generateProof } from '../../utils/zkProof';
 
+const RELAYER_URL = 'http://localhost:3001';
+
 const Withdraw = ({ client, contractAddress }) => {
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [deposits, setDeposits] = useState([]);
@@ -53,19 +55,26 @@ const Withdraw = ({ client, contractAddress }) => {
         recipientAddress
       );
 
-      // Execute withdrawal transaction
-      const result = await client.execute(
-        contractAddress,
-        {
-          withdraw: {
-            proof: proof,
-            root: root,
-            nullifier_hash: nullifierHash,
-            recipient: recipientAddress,
-          },
+      // Send withdrawal request to relayer
+      const response = await fetch(`${RELAYER_URL}/withdraw`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        "auto"
-      );
+        body: JSON.stringify({
+          proof,
+          root,
+          nullifierHash,
+          recipient: recipientAddress,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.details || 'Failed to process withdrawal');
+      }
+
+      const result = await response.json();
 
       toast({
         title: 'Withdrawal Successful!',
