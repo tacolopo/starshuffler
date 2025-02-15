@@ -10,6 +10,7 @@ import {
   FormLabel,
 } from '@chakra-ui/react';
 import { utils } from 'circomlib';
+import { config } from '../../config';
 
 const Deposit = ({ client, contractAddress }) => {
   const [isDepositing, setIsDepositing] = useState(false);
@@ -44,7 +45,9 @@ const Deposit = ({ client, contractAddress }) => {
             commitment: commitment,
           },
         },
-        "auto"
+        "auto",
+        undefined,
+        [config.DEPOSIT_AMOUNT]
       );
 
       toast({
@@ -93,6 +96,10 @@ const Deposit = ({ client, contractAddress }) => {
             placeholder="Generate a random secret"
           />
         </FormControl>
+
+        <Text fontSize="sm" color="gray.600">
+          Deposit amount: {parseInt(config.DEPOSIT_AMOUNT.amount) / 1000000} {config.DEPOSIT_AMOUNT.denom.replace('u', '').toUpperCase()}
+        </Text>
 
         <Button
           colorScheme="blue"

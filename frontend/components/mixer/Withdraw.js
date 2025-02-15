@@ -12,8 +12,7 @@ import {
 } from '@chakra-ui/react';
 import { utils } from 'circomlib';
 import { generateProof } from '../../utils/zkProof';
-
-const RELAYER_URL = 'http://localhost:3001';
+import { config } from '../../config';
 
 const Withdraw = ({ client, contractAddress }) => {
   const [isWithdrawing, setIsWithdrawing] = useState(false);
@@ -56,7 +55,7 @@ const Withdraw = ({ client, contractAddress }) => {
       );
 
       // Send withdrawal request to relayer
-      const response = await fetch(`${RELAYER_URL}/withdraw`, {
+      const response = await fetch(`${config.RELAYER_URL}/withdraw`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

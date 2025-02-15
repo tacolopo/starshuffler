@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Button, Text, useToast } from '@chakra-ui/react';
 import { DirectSecp256k1HdWallet } from '@cosmjs/proto-signing';
 import { SigningCosmWasmClient } from '@cosmjs/cosmwasm-stargate';
+import { config } from '../config';
 
 const WalletConnect = ({ onConnect }) => {
   const [isConnecting, setIsConnecting] = useState(false);
@@ -17,14 +18,14 @@ const WalletConnect = ({ onConnect }) => {
       }
 
       // Request connection to Juno testnet
-      await window.keplr.enable("uni-5");
+      await window.keplr.enable(config.CHAIN_CONFIG.chainId);
       
-      const offlineSigner = window.keplr.getOfflineSigner("uni-5");
+      const offlineSigner = window.keplr.getOfflineSigner(config.CHAIN_CONFIG.chainId);
       const accounts = await offlineSigner.getAccounts();
       
       // Create signing client
       const client = await SigningCosmWasmClient.connectWithSigner(
-        "https://rpc.uni.juno.deuslabs.fi",
+        config.CHAIN_CONFIG.rpcEndpoint,
         offlineSigner
       );
 

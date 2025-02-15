@@ -14,9 +14,7 @@ import {
 import WalletConnect from '../components/WalletConnect';
 import Deposit from '../components/mixer/Deposit';
 import Withdraw from '../components/mixer/Withdraw';
-
-// Contract address on Juno testnet
-const CONTRACT_ADDRESS = "juno1dasvu449cxxedsm76cx6pxkyk6yq404efc6xnt4guce8apxxg6wssg5jak";
+import { config } from '../config';
 
 export default function Home() {
   const [walletData, setWalletData] = useState(null);
@@ -51,13 +49,13 @@ export default function Home() {
               <TabPanel>
                 <Deposit
                   client={walletData.client}
-                  contractAddress={CONTRACT_ADDRESS}
+                  contractAddress={config.CONTRACT_ADDRESS}
                 />
               </TabPanel>
               <TabPanel>
                 <Withdraw
                   client={walletData.client}
-                  contractAddress={CONTRACT_ADDRESS}
+                  contractAddress={config.CONTRACT_ADDRESS}
                 />
               </TabPanel>
             </TabPanels>
