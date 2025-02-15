@@ -13,6 +13,17 @@ const addressToNumber = (address) => {
   return BigInt('0x' + result);
 };
 
+// Helper function to pad hex strings to even length
+const padHex = (hexStr) => {
+  // Remove 0x prefix if present
+  let hex = hexStr.startsWith('0x') ? hexStr.slice(2) : hexStr;
+  // Add leading zero if odd length
+  if (hex.length % 2 !== 0) {
+    hex = '0' + hex;
+  }
+  return '0x' + hex;
+};
+
 export const generateProof = async (secret, commitment, allCommitments, recipient) => {
   try {
     console.log('Generating proof with inputs:', {
@@ -59,18 +70,27 @@ export const generateProof = async (secret, commitment, allCommitments, recipien
     console.log('Generated proof:', proof);
     console.log('Public signals:', publicSignals);
 
-    // Convert the proof to the format expected by the contract
+    // Convert the proof to hex strings with proper padding
     const proofForContract = [
-      proof.pi_a[0],
-      proof.pi_a[1],
-      proof.pi_b[0][0],
-      proof.pi_b[0][1],
-      proof.pi_b[1][0],
-      proof.pi_b[1][1],
-      proof.pi_c[0],
-      proof.pi_c[1],
-    ].map(x => x.toString());
+      // Convert pi_a points to hex strings
+      proof.pi_a[0].toString(16),
+      proof.pi_a[1].toString(16),
+      // Convert pi_b points to hex strings (note the reversed order for each pair)
+      proof.pi_b[0][1].toString(16),
+      proof.pi_b[0][0].toString(16),
+      proof.pi_b[1][1].toString(16),
+      proof.pi_b[1][0].toString(16),
+      // Convert pi_c points to hex strings
+      proof.pi_c[0].toString(16),
+      proof.pi_c[1].toString(16)
+    ].map(x => {
+      if (x.startsWith('-')) {
+        return '-' + padHex(x.slice(1));
+      }
+      return padHex(x);
+    });
 
+    console.log('Proof for contract:', proofForContract);
     return proofForContract;
   } catch (error) {
     console.error('Error generating proof:', error);

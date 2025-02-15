@@ -9,13 +9,13 @@ import {
   Input,
   FormControl,
   FormLabel,
-  Spinner,
   Alert,
   AlertIcon,
 } from '@chakra-ui/react';
 import { generateProof } from '../../utils/zkProof';
 import { config } from '../../config';
 import { usePoseidon } from '../PoseidonProvider';
+import { createMerkleProof } from '../../utils/merkleTree';
 
 const Withdraw = ({ client, contractAddress }) => {
   const [isWithdrawing, setIsWithdrawing] = useState(false);
@@ -65,16 +65,14 @@ const Withdraw = ({ client, contractAddress }) => {
       if (!account) {
         throw new Error('No account found. Please check your wallet connection');
       }
-      
-      // Get the current root
-      const rootResponse = await client.queryContractSmart(contractAddress, {
-        get_merkle_root: {}
-      });
-      console.log('Current root:', rootResponse);
 
       // Generate nullifier hash using poseidon
       const secretBigInt = BigInt('0x' + deposit.secret);
       const nullifierHash = poseidon.F.toString(poseidon([secretBigInt]));
+
+      // Generate Merkle proof
+      const merkleProof = await createMerkleProof(deposit.commitment, [deposit.commitment]);
+      console.log('Generated Merkle proof:', merkleProof);
 
       // Generate ZK proof
       const proof = await generateProof(
@@ -88,7 +86,7 @@ const Withdraw = ({ client, contractAddress }) => {
       const msg = {
         withdraw: {
           proof: proof,
-          root: rootResponse.root, // Use the root from contract response
+          root: merkleProof.root,
           nullifier_hash: nullifierHash,
           recipient: recipientAddress,
         },
