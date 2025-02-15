@@ -2,7 +2,7 @@
 set -e # Exit on error
 
 echo "Cleaning up previous build..."
-rm -rf build node_modules package.json package-lock.json
+rm -rf build node_modules package-lock.json
 
 echo "Creating build directory..."
 mkdir -p build/circuits
@@ -17,7 +17,6 @@ mkdir -p circuits
 echo "Using existing merkleproof circuit in circuits folder..."
 
 echo "Installing dependencies..."
-npm init -y
 npm install circomlib snarkjs
 
 echo "Compiling circuit..."
@@ -40,4 +39,4 @@ snarkjs zkey export verificationkey merkleproof_final.zkey verification_key.json
 echo "Setup complete!"
 
 # Copy the verification key (while in build/circuits directory)
-cp verification_key.json verification_key.bin 
+cp verification_key.json verification_key.json 

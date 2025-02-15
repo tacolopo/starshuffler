@@ -15,7 +15,7 @@ const GAS_PRICE = GasPrice.fromString("0.09ujuno");
 
 async function deploy() {
     // Check verification key exists
-    const verificationKeyPath = path.join(__dirname, '../src/verification_key/verification_key.bin');
+    const verificationKeyPath = path.join(__dirname, '../src/verification_key/verification_key.json');
     if (!existsSync(verificationKeyPath)) {
         throw new Error('Verification key not found at: ' + verificationKeyPath + '. Please run `npm run setup-circuit` first.');
     }

@@ -1,13 +1,14 @@
 import { execSync } from 'child_process';
-import { mkdirSync, rmSync, readFileSync, writeFileSync } from 'fs';
+import { mkdirSync, rmSync, readFileSync, writeFileSync, existsSync } from 'fs';
 import path from 'path';
 
 async function setupCircuit() {
     try {
         console.log("Cleaning up previous build...");
         rmSync('build', { recursive: true, force: true });
-        rmSync('node_modules', { recursive: true, force: true });
-        rmSync('package.json', { force: true });
+        // Don't delete package.json and node_modules since we need them
+        // rmSync('node_modules', { recursive: true, force: true });
+        // rmSync('package.json', { force: true });
         rmSync('package-lock.json', { force: true });
 
         console.log("Creating build directories...");
@@ -15,9 +16,11 @@ async function setupCircuit() {
         mkdirSync(path.join(__dirname, 'build/contract'), { recursive: true });
         mkdirSync(path.join(__dirname, 'circuits'), { recursive: true });
 
-        console.log("Installing dependencies...");
-        execSync('npm init -y', { stdio: 'inherit' });
-        execSync('npm install circomlib snarkjs', { stdio: 'inherit' });
+        // Don't reinstall dependencies if they exist
+        if (!existsSync('node_modules')) {
+            console.log("Installing dependencies...");
+            execSync('npm install circomlib snarkjs', { stdio: 'inherit' });
+        }
 
         console.log("Compiling circuit...");
         execSync('circom circuits/merkleproof.circom --r1cs --wasm --sym -l node_modules -o build/circuits', {
@@ -63,7 +66,7 @@ async function setupCircuit() {
 
         // Save both formats
         writeFileSync(
-            'verification_key.bin',
+            'verification_key.json',
             JSON.stringify(formattedKey, null, 2)  // Pretty print JSON
         );
 
@@ -73,7 +76,7 @@ async function setupCircuit() {
         mkdirSync(contractKeyPath, { recursive: true });
         
         writeFileSync(
-            path.join(contractKeyPath, 'verification_key.bin'),
+            path.join(contractKeyPath, 'verification_key.json'),
             JSON.stringify(formattedKey, null, 2)  // Pretty print JSON
         );
         

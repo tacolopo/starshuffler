@@ -7,7 +7,6 @@ node_modules/
 # Circuit build artifacts
 circuit/build/
 circuit/node_modules/
-circuit/package.json
 circuit/package-lock.json
 circuit/*.ptau
 circuit/*.r1cs
@@ -15,12 +14,6 @@ circuit/*.sym
 circuit/*.wasm
 circuit/*.zkey
 circuit/verification_key.*
-
-# Generated verification keys
-src/verification_key/
-**/verification_key.bin
-**/verification_key.json
-.env
 
 # Frontend environment files
 frontend/.env.local

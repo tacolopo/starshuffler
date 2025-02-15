@@ -19,8 +19,10 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "deploy-contract": "ts-node scripts/deploy-contract.ts",
     "setup-circuit": "cd circuit && npm install && npm run setup",
-    "deploy": "npm run setup-circuit && npm run deploy-contract",
-    "setup": "ts-node circuit/setup.ts"
+    "build-contract": "docker run --rm -v \"$(pwd)\":/code --mount type=volume,source=\"$(basename \"$(pwd)\")_cache\",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.16.1",
+    "deploy": "npm run setup-circuit && npm run build-contract && npm run deploy-contract",
+    "setup": "ts-node circuit/setup.ts",
+    "fix-key": "ts-node scripts/fix-verification-key.ts"
   },
   "keywords": [],
   "author": "",
