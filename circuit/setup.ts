@@ -48,27 +48,38 @@ async function setupCircuit() {
         console.log("Converting verification key to binary format...");
         const verificationKey = JSON.parse(readFileSync('verification_key.json', 'utf8'));
         
-        // Ensure the verification key is properly structured
+        // Use the full verification key format
         const formattedKey = {
-            alpha: verificationKey.alpha_1,
-            beta: verificationKey.beta_2,
-            gamma: verificationKey.gamma_2,
-            delta: verificationKey.delta_2,
-            ic: verificationKey.IC
+            protocol: "groth16",
+            curve: "bn128",
+            nPublic: verificationKey.nPublic,
+            vk_alpha_1: verificationKey.vk_alpha_1,
+            vk_beta_2: verificationKey.vk_beta_2,
+            vk_gamma_2: verificationKey.vk_gamma_2,
+            vk_delta_2: verificationKey.vk_delta_2,
+            vk_alphabeta_12: verificationKey.vk_alphabeta_12,
+            IC: verificationKey.IC
         };
 
         // Save both formats
         writeFileSync(
             'verification_key.bin',
-            Buffer.from(JSON.stringify(formattedKey))
+            JSON.stringify(formattedKey, null, 2)  // Pretty print JSON
         );
 
-        // Copy to the location where the contract expects it
+        // Copy to both locations where the contract might look for it
         const contractKeyPath = path.join(__dirname, '../src/verification_key');
+        const buildKeyPath = path.join(__dirname, 'build/circuits');
         mkdirSync(contractKeyPath, { recursive: true });
+        
         writeFileSync(
             path.join(contractKeyPath, 'verification_key.bin'),
-            Buffer.from(JSON.stringify(formattedKey))
+            JSON.stringify(formattedKey, null, 2)  // Pretty print JSON
+        );
+        
+        writeFileSync(
+            path.join(buildKeyPath, 'verification_key.json'),
+            JSON.stringify(formattedKey, null, 2)  // Pretty print JSON
         );
 
         console.log("Setup complete!");

@@ -15,9 +15,15 @@ const GAS_PRICE = GasPrice.fromString("0.09ujuno");
 
 async function deploy() {
     // Check verification key exists
-    const verificationKeyPath = path.join(__dirname, '../circuit/build/circuits/verification_key.json');
+    const verificationKeyPath = path.join(__dirname, '../src/verification_key/verification_key.bin');
     if (!existsSync(verificationKeyPath)) {
-        throw new Error('Verification key not found. Please run `npm run setup-circuit` first.');
+        throw new Error('Verification key not found at: ' + verificationKeyPath + '. Please run `npm run setup-circuit` first.');
+    }
+
+    // Read and validate verification key
+    const verificationKey = JSON.parse(readFileSync(verificationKeyPath, 'utf8'));
+    if (!verificationKey.protocol || verificationKey.protocol !== 'groth16') {
+        throw new Error('Invalid verification key format');
     }
 
     // Setup wallet and client
