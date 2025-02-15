@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST="{}"
+self.__REACT_LOADABLE_MANIFEST="{\"../components/mixer/Deposit.js -> circomlibjs\":{\"id\":\"../components/mixer/Deposit.js -> circomlibjs\",\"files\":[]}}"

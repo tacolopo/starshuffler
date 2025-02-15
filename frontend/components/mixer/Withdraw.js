@@ -10,7 +10,7 @@ import {
   FormControl,
   FormLabel,
 } from '@chakra-ui/react';
-import { utils } from 'circomlib';
+import { buildPoseidon } from 'circomlibjs';
 import { generateProof } from '../../utils/zkProof';
 import { config } from '../../config';
 
@@ -19,15 +19,27 @@ const Withdraw = ({ client, contractAddress }) => {
   const [deposits, setDeposits] = useState([]);
   const [selectedDeposit, setSelectedDeposit] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
+  const [poseidon, setPoseidon] = useState(null);
   const toast = useToast();
 
   useEffect(() => {
     const storedDeposits = JSON.parse(localStorage.getItem('deposits') || '[]');
     setDeposits(storedDeposits);
+
+    // Initialize poseidon
+    const initPoseidon = async () => {
+      const poseidonInstance = await buildPoseidon();
+      setPoseidon(poseidonInstance);
+    };
+    initPoseidon();
   }, []);
 
   const handleWithdraw = async () => {
     try {
+      if (!poseidon) {
+        throw new Error('Poseidon hash function not initialized');
+      }
+
       setIsWithdrawing(true);
 
       if (!selectedDeposit || !recipientAddress) {
@@ -36,15 +48,20 @@ const Withdraw = ({ client, contractAddress }) => {
 
       const deposit = deposits.find(d => d.secret === selectedDeposit);
       
-      // Generate nullifier hash
-      const nullifierHash = utils.pedersenHash(
-        Buffer.from(deposit.secret, 'hex')
-      ).toString('hex');
+      // Generate nullifier hash using poseidon
+      const secretBigInt = BigInt('0x' + deposit.secret);
+      const hash = poseidon.F.toString(poseidon([secretBigInt]));
+      const nullifierHash = hash.toString();
+
+      console.log('Secret:', deposit.secret);
+      console.log('Nullifier Hash:', nullifierHash);
 
       // Get current Merkle root from contract
       const { root } = await client.queryContractSmart(contractAddress, {
         get_merkle_root: {}
       });
+
+      console.log('Merkle Root:', root);
 
       // Generate ZK proof
       const proof = await generateProof(
@@ -91,6 +108,7 @@ const Withdraw = ({ client, contractAddress }) => {
       setRecipientAddress('');
 
     } catch (error) {
+      console.error('Withdrawal error:', error);
       toast({
         title: 'Withdrawal Failed',
         description: error.message,
@@ -116,6 +134,7 @@ const Withdraw = ({ client, contractAddress }) => {
             value={selectedDeposit}
             onChange={(e) => setSelectedDeposit(e.target.value)}
             placeholder="Select a deposit"
+            isDisabled={!poseidon}
           >
             {deposits.map((deposit, index) => (
               <option key={deposit.secret} value={deposit.secret}>
@@ -131,6 +150,7 @@ const Withdraw = ({ client, contractAddress }) => {
             value={recipientAddress}
             onChange={(e) => setRecipientAddress(e.target.value)}
             placeholder="Enter recipient address"
+            isDisabled={!poseidon}
           />
         </FormControl>
 
@@ -139,7 +159,7 @@ const Withdraw = ({ client, contractAddress }) => {
           onClick={handleWithdraw}
           isLoading={isWithdrawing}
           loadingText="Withdrawing..."
-          isDisabled={!selectedDeposit || !recipientAddress}
+          isDisabled={!selectedDeposit || !recipientAddress || !poseidon}
         >
           Withdraw
         </Button>
