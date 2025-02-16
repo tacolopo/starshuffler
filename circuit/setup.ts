@@ -51,21 +51,8 @@ async function setupCircuit() {
         console.log("Converting verification key to binary format...");
         const verificationKey = JSON.parse(readFileSync('verification_key.json', 'utf8'));
         
-        // Format for JSON output
-        const formattedKey = {
-            protocol: "groth16",
-            curve: "bn128",
-            nPublic: verificationKey.nPublic,
-            vk_alpha_1: verificationKey.vk_alpha_1,
-            vk_beta_2: verificationKey.vk_beta_2,
-            vk_gamma_2: verificationKey.vk_gamma_2,
-            vk_delta_2: verificationKey.vk_delta_2,
-            vk_alphabeta_12: verificationKey.vk_alphabeta_12,
-            IC: verificationKey.IC
-        };
-
         // Create binary format
-        let binaryKey = Buffer.from([1, 1, 1]); // Version, Groth16, BN128
+        let binaryKey = Buffer.alloc(0);
 
         // Helper to convert decimal string to 32-byte buffer
         const decimalToBuffer = (decimal: string) => {
@@ -73,18 +60,40 @@ async function setupCircuit() {
             return Buffer.from(hex, 'hex');
         };
 
-        // Add key components in binary format
-        for (const component of verificationKey.vk_alpha_1) {
-            binaryKey = Buffer.concat([binaryKey, decimalToBuffer(component)]);
+        // Add alpha_g1
+        for (const coord of verificationKey.vk_alpha_1) {
+            binaryKey = Buffer.concat([binaryKey, decimalToBuffer(coord)]);
         }
 
-        for (const group of [verificationKey.vk_beta_2, verificationKey.vk_gamma_2, verificationKey.vk_delta_2]) {
-            for (const point of group) {
-                if (Array.isArray(point)) {
-                    for (const coord of point) {
-                        binaryKey = Buffer.concat([binaryKey, decimalToBuffer(coord)]);
-                    }
-                }
+        // Add beta_g2
+        for (const point of verificationKey.vk_beta_2) {
+            for (const coord of point) {
+                binaryKey = Buffer.concat([binaryKey, decimalToBuffer(coord)]);
+            }
+        }
+
+        // Add gamma_g2
+        for (const point of verificationKey.vk_gamma_2) {
+            for (const coord of point) {
+                binaryKey = Buffer.concat([binaryKey, decimalToBuffer(coord)]);
+            }
+        }
+
+        // Add delta_g2
+        for (const point of verificationKey.vk_delta_2) {
+            for (const coord of point) {
+                binaryKey = Buffer.concat([binaryKey, decimalToBuffer(coord)]);
+            }
+        }
+
+        // Add IC (encoded length followed by points)
+        const icLength = Buffer.alloc(4);
+        icLength.writeUInt32BE(verificationKey.IC.length);
+        binaryKey = Buffer.concat([binaryKey, icLength]);
+        
+        for (const point of verificationKey.IC) {
+            for (const coord of point) {
+                binaryKey = Buffer.concat([binaryKey, decimalToBuffer(coord)]);
             }
         }
 
@@ -92,19 +101,17 @@ async function setupCircuit() {
         const contractKeyPath = path.join(__dirname, '../src/verification_key');
         mkdirSync(contractKeyPath, { recursive: true });
         
-        // Save both formats in their respective locations
+        // Save both formats
         writeFileSync(
             path.join(contractKeyPath, 'verification_key.json'),
-            JSON.stringify(formattedKey, null, 2)
+            JSON.stringify(verificationKey, null, 2)
         );
         writeFileSync(
             path.join(contractKeyPath, 'verification_key.bin'),
             binaryKey
         );
 
-        console.log("Verification key files generated:");
-        console.log("1. JSON format: src/verification_key/verification_key.json");
-        console.log("2. Binary format: src/verification_key/verification_key.bin");
+        console.log("✓ Verification key files generated in src/verification_key/");
         
     } catch (error) {
         console.error("Setup failed:", error);
