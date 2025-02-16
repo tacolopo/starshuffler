@@ -7,7 +7,7 @@ use base64;
 
 #[derive(Serialize, Deserialize, Clone, Debug, JsonSchema)]
 pub struct Verifier {
-    vk_json: String,
+    pub vk_json: String,  // Actually making it public now
 }
 
 impl Verifier {
@@ -15,11 +15,15 @@ impl Verifier {
         // Load the binary verification key
         let vk_bytes = include_bytes!("verification_key/verification_key.bin");
         
+        // Validate the verification key format before storing
+        MixerVerifyingKey::new(vk_bytes)
+            .expect("Invalid verification key binary format");
+            
         // Convert to base64 for storage
         let vk_base64 = base64::encode(vk_bytes);
         
         Self {
-            vk_json: vk_base64,  // Reusing vk_json field to store base64 binary
+            vk_json: vk_base64,  // Now public for debugging
         }
     }
 

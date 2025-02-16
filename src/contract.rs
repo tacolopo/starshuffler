@@ -132,9 +132,23 @@ pub fn execute_withdraw(
             msg: format!("Invalid proof format: {}", e) 
         })?;
 
+    // Convert root and nullifier_hash to field elements
+    use ark_std::str::FromStr;
+    use ark_bn254::Fr;
+
+    let root_fr = Fr::from_str(&root)
+        .map_err(|e| ContractError::ProofVerificationError {
+            msg: format!("Invalid root format: {:?}", e)
+        })?;
+
+    let nullifier_fr = Fr::from_str(&nullifier_hash)
+        .map_err(|e| ContractError::ProofVerificationError {
+            msg: format!("Invalid nullifier hash format: {:?}", e)
+        })?;
+
     let mixer_proof = MixerProof {
         proof,
-        public_inputs: vec![], // You'll need to implement conversion of root and nullifier_hash to Fr
+        public_inputs: vec![root_fr, nullifier_fr],
     };
 
     // Verify the proof with detailed error
@@ -170,6 +184,7 @@ pub fn query(deps: Deps, _env: Env, msg: QueryMsg) -> StdResult<Binary> {
             to_json_binary(&query_nullifier(deps, nullifier_hash)?)
         }
         QueryMsg::GetMerkleRoot {} => to_json_binary(&query_merkle_root(deps)?),
+        QueryMsg::GetVerifier {} => to_json_binary(&query_verifier(deps)?),
     }
 }
 
@@ -189,4 +204,9 @@ fn query_nullifier(deps: Deps, nullifier_hash: String) -> StdResult<bool> {
 fn query_merkle_root(deps: Deps) -> StdResult<String> {
     let config = CONFIG.load(deps.storage)?;
     Ok(config.current_root)
+}
+
+fn query_verifier(deps: Deps) -> StdResult<String> {
+    let verifier = VERIFIER.load(deps.storage)?;
+    Ok(verifier.vk_json.clone())
 } 

@@ -34,6 +34,9 @@ pub enum QueryMsg {
     // Get the current merkle root
     #[returns(String)]
     GetMerkleRoot {},
+    // Get the verifier
+    #[returns(String)]
+    GetVerifier {},
 }
 
 #[cw_serde]

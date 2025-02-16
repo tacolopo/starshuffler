@@ -77,7 +77,7 @@ async function initializeClient() {
           denom: "ujuno"
         },
         prefix: "juno",
-        gasMultiplier: 1.3
+        gasMultiplier: 2.0
       }
     );
     
@@ -110,14 +110,17 @@ app.post('/relay-withdrawal', async (req, res) => {
     const root = await client.queryContractSmart(process.env.CONTRACT_ADDRESS, {
       get_merkle_root: {}
     });
+    console.log('Current merkle root:', root);
 
     // Convert values to field elements
-    const rootBigInt = BigInt(root);
+    const rootBigInt = BigInt(root || "0");
+    console.log('Root as BigInt:', rootBigInt.toString());
 
     // Generate commitment from nullifier and secret
     const commitment = poseidon.F.toString(
       poseidon([secretBigInt, secretBigInt])  // Using secret as both nullifier and secret for now
     );
+    console.log('Generated commitment:', commitment);
 
     // Generate ZK proof
     const input = {
@@ -150,20 +153,31 @@ app.post('/relay-withdrawal', async (req, res) => {
 
     // Execute withdrawal with the real proof
     const [account] = await wallet.getAccounts();
+    console.log('Sending withdrawal with:', {
+      proof: [proofHex],
+      root: rootBigInt.toString(),
+      nullifier_hash: nullifierHash,
+      recipient: note.recipient
+    });
+
     const result = await client.execute(
       account.address,
       process.env.CONTRACT_ADDRESS,
       {
         withdraw: {
           proof: [proofHex],
-          root,
+          root: rootBigInt.toString(),
           nullifier_hash: nullifierHash,
           recipient: note.recipient
         }
       },
-      "auto",
-      undefined,
-      []
+      {
+        amount: [{
+          amount: "75000",
+          denom: "ujuno"
+        }],
+        gas: "1000000"
+      }
     );
 
     res.json({

@@ -19,20 +19,8 @@ pub struct MixerVerifyingKey(pub(crate) VerifyingKey<Bn254>);
 
 impl MixerVerifyingKey {
     pub fn new(bytes: &[u8]) -> Result<Self, ark_serialize::SerializationError> {
-        if bytes.len() < 3 {
-            return Err(ark_serialize::SerializationError::InvalidData);
-        }
-
-        // Verify header
-        if bytes[0] != 1 || bytes[1] != 1 || bytes[2] != 1 {
-            return Err(ark_serialize::SerializationError::InvalidData);
-        }
-
-        // Skip header
-        let key_bytes = &bytes[3..];
-        
-        // Deserialize the verifying key
-        let vk = VerifyingKey::deserialize_uncompressed(key_bytes)?;
+        // Deserialize the verifying key directly
+        let vk = VerifyingKey::deserialize_uncompressed(bytes)?;
         Ok(MixerVerifyingKey(vk))
     }
 }
