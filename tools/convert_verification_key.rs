@@ -24,14 +24,16 @@ struct SnarkjsVerificationKey {
 }
 
 fn parse_g1(coords: &[String]) -> Result<G1Affine, Box<dyn std::error::Error>> {
-    assert_eq!(coords.len(), 2);
+    assert_eq!(coords.len(), 3); // Should have x, y, and z coordinates
     let x = Fr::from_str(&coords[0])?;
     let y = Fr::from_str(&coords[1])?;
+    // z coordinate should be 1 for affine form
+    assert_eq!(coords[2], "1", "G1 point must be in affine form");
     Ok(G1Affine::new(x, y))
 }
 
 fn parse_g2(coords: &[Vec<String>]) -> Result<G2Affine, Box<dyn std::error::Error>> {
-    assert_eq!(coords.len(), 2);
+    assert_eq!(coords.len(), 3); // Should have x, y, and z coordinates
     let x = vec![
         Fr::from_str(&coords[0][0])?,
         Fr::from_str(&coords[0][1])?
@@ -40,6 +42,9 @@ fn parse_g2(coords: &[Vec<String>]) -> Result<G2Affine, Box<dyn std::error::Erro
         Fr::from_str(&coords[1][0])?,
         Fr::from_str(&coords[1][1])?
     ];
+    // z coordinate should be [1,0] for affine form
+    assert_eq!(coords[2][0], "1", "G2 point must be in affine form");
+    assert_eq!(coords[2][1], "0", "G2 point must be in affine form");
     Ok(G2Affine::new(x, y))
 }
 

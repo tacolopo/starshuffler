@@ -2,6 +2,17 @@ const { execSync } = require('child_process');
 const { mkdirSync, rmSync, readFileSync, writeFileSync, existsSync } = require('fs');
 const path = require('path');
 
+// Helper to convert decimal string to 32-byte buffer in big-endian format
+const decimalToBufferBE = (decimal: string) => {
+    const bytes = [];
+    let num = BigInt(decimal);
+    for (let i = 0; i < 32; i++) {
+        bytes.unshift(Number(num & BigInt(255))); // Push to front for BE
+        num = num >> BigInt(8);
+    }
+    return Buffer.from(bytes);
+};
+
 async function setupCircuit() {
     try {
         console.log("Cleaning up previous build...");
@@ -12,14 +23,14 @@ async function setupCircuit() {
         rmSync('package-lock.json', { force: true });
 
         console.log("Creating build directories...");
-    mkdirSync(path.join(__dirname, 'build/circuits'), { recursive: true });
+        mkdirSync(path.join(__dirname, 'build/circuits'), { recursive: true });
         mkdirSync(path.join(__dirname, 'build/contract'), { recursive: true });
         mkdirSync(path.join(__dirname, 'circuits'), { recursive: true });
 
         // Don't reinstall dependencies if they exist
         if (!existsSync('node_modules')) {
             console.log("Installing dependencies...");
-            execSync('npm install circomlib snarkjs', { stdio: 'inherit' });
+            execSync('npm install circomlib snarkjs ts-node typescript @types/node', { stdio: 'inherit' });
         }
 
         console.log("Compiling circuit...");
@@ -44,70 +55,72 @@ async function setupCircuit() {
             stdio: 'inherit'
         });
         
-        // Export verification key in JSON format
         execSync('snarkjs zkey export verificationkey merkleproof_final.zkey verification_key.json', {
             stdio: 'inherit'
         });
 
-        // Create src/verification_key directory if it doesn't exist
-        const contractKeyPath = path.join(__dirname, '../src/verification_key');
-        mkdirSync(contractKeyPath, { recursive: true });
-        
         // Read the verification key JSON
         const verificationKey = JSON.parse(readFileSync('verification_key.json', 'utf8'));
         
-        // Create binary format that matches ark-groth16's uncompressed format for BN254
+        // Create binary format that matches ark-groth16's format for BN254
         let binaryKey = Buffer.alloc(0);
 
-        // Helper to convert decimal string to 32-byte buffer in little-endian
-        const decimalToBuffer = (decimal: string) => {
-            const bytes = [];
-            let num = BigInt(decimal);
-            for (let i = 0; i < 32; i++) {
-                bytes.push(Number(num & BigInt(255)));
-                num = num >> BigInt(8);
-            }
-            return Buffer.from(bytes);
-        };
+        // Write alpha_g1 (x, y) coordinates - only take first two coordinates (affine form)
+        binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.vk_alpha_1[0])]);
+        binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.vk_alpha_1[1])]);
 
-        // Write alpha_g1 (uncompressed)
-        for (const coord of verificationKey.vk_alpha_1) {
-            binaryKey = Buffer.concat([binaryKey, decimalToBuffer(coord)]);
+        // Write beta_g2 coordinates - only take first two coordinates of each component
+        for (let i = 0; i < 2; i++) {
+            binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.vk_beta_2[i][0])]);
+            binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.vk_beta_2[i][1])]);
         }
 
-        // Write beta_g2 (uncompressed)
-        for (const point of verificationKey.vk_beta_2) {
-            for (const coord of point) {
-                binaryKey = Buffer.concat([binaryKey, decimalToBuffer(coord)]);
-            }
+        // Write gamma_g2 coordinates
+        for (let i = 0; i < 2; i++) {
+            binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.vk_gamma_2[i][0])]);
+            binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.vk_gamma_2[i][1])]);
         }
 
-        // Write gamma_g2 (uncompressed)
-        for (const point of verificationKey.vk_gamma_2) {
-            for (const coord of point) {
-                binaryKey = Buffer.concat([binaryKey, decimalToBuffer(coord)]);
-            }
+        // Write delta_g2 coordinates
+        for (let i = 0; i < 2; i++) {
+            binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.vk_delta_2[i][0])]);
+            binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.vk_delta_2[i][1])]);
         }
 
-        // Write delta_g2 (uncompressed)
-        for (const point of verificationKey.vk_delta_2) {
-            for (const coord of point) {
-                binaryKey = Buffer.concat([binaryKey, decimalToBuffer(coord)]);
-            }
-        }
+        // Write vector length header (uint32)
+        const vecLengthHeader = Buffer.alloc(4);
+        vecLengthHeader.writeUInt32BE(2); // 2 IC points
+        binaryKey = Buffer.concat([binaryKey, vecLengthHeader]);
 
-        // Write number of IC points (32-bit little-endian)
+        // Write IC length (should be 2 for root and nullifier_hash)
         const icLength = Buffer.alloc(4);
-        icLength.writeUInt32LE(verificationKey.IC.length);
+        icLength.writeUInt32BE(2);
         binaryKey = Buffer.concat([binaryKey, icLength]);
 
-        // Write IC points (uncompressed)
-        for (const point of verificationKey.IC) {
-            for (const coord of point) {
-                binaryKey = Buffer.concat([binaryKey, decimalToBuffer(coord)]);
-            }
+        // Write IC points - only take first two coordinates of each point
+        for (let i = 0; i < 2; i++) {
+            binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.IC[i][0])]);
+            binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.IC[i][1])]);
         }
-        
+
+        // Verify the binary key length
+        const expectedLength = 
+            (2 * 32) +    // alpha_g1 (x,y)
+            (4 * 32) +    // beta_g2 (x_c1,x_c0,y_c1,y_c0)
+            (4 * 32) +    // gamma_g2
+            (4 * 32) +    // delta_g2
+            4 +           // Vector length header (uint32)
+            4 +           // IC length (uint32)
+            (2 * 2 * 32); // 2 IC points (x,y each)
+
+        if (binaryKey.length !== expectedLength) {
+            throw new Error(`Invalid verification key length. Expected ${expectedLength} bytes, got ${binaryKey.length} bytes`);
+        }
+
+        // Create src/verification_key directory if it doesn't exist
+        const contractKeyPath = path.join(__dirname, '../src/verification_key');
+        mkdirSync(contractKeyPath, { recursive: true });
+
         // Save both formats
         writeFileSync(
             path.join(contractKeyPath, 'verification_key.json'),
@@ -118,7 +131,9 @@ async function setupCircuit() {
             binaryKey
         );
 
-        console.log("✓ Verification key files generated in src/verification_key/");
+        console.log(`✓ Verification key files generated in src/verification_key/`);
+        console.log(`  Binary key size: ${binaryKey.length} bytes`);
+        console.log(`  Number of IC points: 2`);
         
     } catch (error) {
         console.error("Setup failed:", error);

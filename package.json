@@ -2,6 +2,16 @@
   "name": "juno-privacy-mixer",
   "version": "1.0.0",
   "description": "Privacy mixer for Juno blockchain",
+  "scripts": {
+    "setup-circuit": "cd circuit && npm install && bash setup.sh",
+    "build-contract": "cargo build --release --target wasm32-unknown-unknown && mkdir -p artifacts && cp target/wasm32-unknown-unknown/release/juno_privacy_mixer.wasm artifacts/",
+    "optimize-contract": "docker run --rm -v \"$(pwd)\":/code --mount type=volume,source=\"$(basename \"$(pwd)\")_cache\",target=/code/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/rust-optimizer:0.16.1",
+    "deploy-contract": "ts-node scripts/deploy-contract.ts",
+    "setup-relayer": "cd relayer && npm install && npm run build",
+    "setup-frontend": "cd frontend && npm install && npm run build",
+    "deploy": "npm run setup-circuit && npm run build-contract && npm run optimize-contract && npm run deploy-contract",
+    "verify": "bash scripts/deploy-checklist.sh"
+  },
   "dependencies": {
     "@cosmjs/cosmwasm-stargate": "^0.33.0",
     "@cosmjs/proto-signing": "^0.33.0",
@@ -14,19 +24,6 @@
     "ts-node": "^10.9.1",
     "typescript": "^4.9.5"
   },
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "deploy-contract": "ts-node scripts/deploy-contract.ts",
-    "setup-circuit": "cd circuit && npm install && npm run setup",
-    "build-contract": "docker run --rm -e DOCKER_OPTIMIZER=1 -v \"$(pwd)\":/code -v \"$(pwd)/src/verification_key:/code/src/verification_key\" --mount type=volume,source=\"$(basename \"$(pwd)\")_cache\",target=/target --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry cosmwasm/optimizer:0.16.1",
-    "deploy": "npm run setup-circuit && npm run build-contract && npm run deploy-contract",
-    "setup": "ts-node circuit/setup.ts",
-    "fix-key": "ts-node scripts/fix-verification-key.ts"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "devDependencies": {
     "@types/express-rate-limit": "^5.1.3"
   }

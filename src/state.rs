@@ -15,9 +15,22 @@ impl Verifier {
         // Load the binary verification key
         let vk_bytes = include_bytes!("verification_key/verification_key.bin");
         
-        // Try to deserialize and capture detailed error
+        // Try to deserialize and validate the key
         match MixerVerifyingKey::new(vk_bytes) {
-            Ok(_vk) => {
+            Ok(vk) => {
+                // Validate key format
+                if let Err(e) = vk.validate() {
+                    panic!(
+                        "Invalid verification key format:\n\
+                        Error: {:?}\n\
+                        Key length: {} bytes\n\
+                        First 32 bytes: {:02x?}",
+                        e,
+                        vk_bytes.len(),
+                        &vk_bytes[..32.min(vk_bytes.len())]
+                    );
+                }
+                
                 let vk_base64 = base64::encode(vk_bytes);
                 Self {
                     vk_json: vk_base64,
@@ -25,7 +38,7 @@ impl Verifier {
             },
             Err(e) => {
                 panic!(
-                    "Verification key error:\n\
+                    "Failed to deserialize verification key:\n\
                     Length: {} bytes\n\
                     First 32 bytes: {:02x?}\n\
                     Error: {:?}\n\
@@ -40,13 +53,42 @@ impl Verifier {
     }
 
     pub fn to_verifying_key(&self) -> StdResult<MixerVerifyingKey> {
-        // Decode base64 to bytes
+        // Decode base64 to bytes with detailed error
         let vk_bytes = base64::decode(&self.vk_json)
-            .map_err(|e| StdError::generic_err(format!("Failed to decode verification key: {}", e)))?;
+            .map_err(|e| StdError::generic_err(format!(
+                "Failed to decode verification key from base64: {}. Base64 string length: {}", 
+                e, 
+                self.vk_json.len()
+            )))?;
         
-        // Create MixerVerifyingKey from binary
-        MixerVerifyingKey::new(&vk_bytes)
-            .map_err(|e| StdError::generic_err(format!("Invalid verifying key format: {}", e)))
+        // Log key details before attempting deserialization
+        let debug_info = format!(
+            "Verification key details:\n\
+            Length: {} bytes\n\
+            First 32 bytes: {:02x?}\n\
+            Last 32 bytes: {:02x?}",
+            vk_bytes.len(),
+            &vk_bytes[..32.min(vk_bytes.len())],
+            &vk_bytes[vk_bytes.len().saturating_sub(32)..]
+        );
+        
+        // Create and validate MixerVerifyingKey
+        let vk = MixerVerifyingKey::new(&vk_bytes)
+            .map_err(|e| StdError::generic_err(format!(
+                "Invalid verification key format: {}\n{}",
+                e,
+                debug_info
+            )))?;
+        
+        // Additional validation
+        vk.validate()
+            .map_err(|e| StdError::generic_err(format!(
+                "Verification key validation failed: {}\n{}",
+                e,
+                debug_info
+            )))?;
+            
+        Ok(vk)
     }
 }
 

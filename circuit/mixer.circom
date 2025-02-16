@@ -1,7 +1,6 @@
 pragma circom 2.0.0;
 
-include "poseidon.circom";
-include "merkleproof.circom";
+include "node_modules/circomlib/circuits/poseidon.circom";
 include "node_modules/circomlib/circuits/comparators.circom";
 
 template HashLeftRight() {
@@ -44,13 +43,14 @@ template MerkleTreeChecker(levels) {
 }
 
 template Mixer() {
-    signal input root;
-    signal input nullifier;
-    signal input secret;
-    signal input path_elements[20];
-    signal input path_indices[20];
+    // Public inputs - these must match the order in the verification key
+    signal input root;           // Public input #1: Merkle root
+    signal input nullifier;      // Public input #2: Nullifier hash
+    signal input secret;         // Private input
+    signal input path_elements[20];  // Private input: Merkle proof elements
+    signal input path_indices[20];   // Private input: Merkle proof indices
     
-    signal output nullifier_hash;
+    signal output nullifier_hash;    // This becomes public via the constraint below
     
     // Hash nullifier and secret to get commitment
     component hasher = Poseidon(2);
@@ -59,15 +59,15 @@ template Mixer() {
     signal commitment <== hasher.out;
     
     // Verify merkle proof
-    component merkle_proof = MerkleProof(20);
+    component merkle_proof = MerkleTreeChecker(20);
     merkle_proof.leaf <== commitment;
     merkle_proof.root <== root;
     for (var i = 0; i < 20; i++) {
-        merkle_proof.path_elements[i] <== path_elements[i];
-        merkle_proof.path_indices[i] <== path_indices[i];
+        merkle_proof.pathElements[i] <== path_elements[i];
+        merkle_proof.pathIndices[i] <== path_indices[i];
     }
     
-    // Calculate nullifier hash
+    // Calculate nullifier hash and constrain it to match the public input
     component nullifier_hasher = Poseidon(1);
     nullifier_hasher.inputs[0] <== nullifier;
     nullifier_hash <== nullifier_hasher.out;

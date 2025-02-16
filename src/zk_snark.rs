@@ -23,6 +23,39 @@ impl MixerVerifyingKey {
         let vk = VerifyingKey::deserialize_uncompressed(bytes)?;
         Ok(MixerVerifyingKey(vk))
     }
+
+    pub fn validate(&self) -> StdResult<()> {
+        // Validate IC length matches circuit requirements
+        if self.0.gamma_abc_g1.len() != 2 {  // We expect 2 public inputs: root and nullifier_hash
+            return Err(StdError::generic_err(format!(
+                "Invalid number of IC points. Expected 2, got {}",
+                self.0.gamma_abc_g1.len()
+            )));
+        }
+
+        // Verify points are in correct subgroup
+        if !self.0.alpha_g1.is_on_curve() {
+            return Err(StdError::generic_err("alpha_g1 point not on curve"));
+        }
+        if !self.0.beta_g2.is_on_curve() {
+            return Err(StdError::generic_err("beta_g2 point not on curve"));
+        }
+        if !self.0.gamma_g2.is_on_curve() {
+            return Err(StdError::generic_err("gamma_g2 point not on curve"));
+        }
+        if !self.0.delta_g2.is_on_curve() {
+            return Err(StdError::generic_err("delta_g2 point not on curve"));
+        }
+
+        // Verify IC points
+        for (i, point) in self.0.gamma_abc_g1.iter().enumerate() {
+            if !point.is_on_curve() {
+                return Err(StdError::generic_err(format!("IC point {} not on curve", i)));
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl<'a> Serialize for MixerVerifyingKey {
