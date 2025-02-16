@@ -325,4 +325,41 @@ mod tests {
         let is_used: bool = from_json(&res).unwrap();
         assert!(is_used);
     }
+
+    #[test]
+    fn test_verification_key_wasm_serialization() {
+        // Set up mock WASM environment
+        let mut deps = mock_dependencies();
+        let env = mock_env();
+        let info = mock_info("creator", &[]);
+        
+        // Create test instantiation message
+        let msg = InstantiateMsg {
+            denomination: Coin {
+                denom: "ujuno".to_string(),
+                amount: Uint128::new(1000000),
+            },
+            merkle_tree_levels: 20,
+        };
+
+        // Instantiate contract (this will load and store the verification key)
+        let res = instantiate(deps.as_mut(), env, info, msg);
+        assert!(res.is_ok(), "Contract instantiation failed: {:?}", res.err());
+
+        // Try to load and deserialize the verification key from contract storage
+        let verifier = VERIFIER.load(&deps.storage).expect("Failed to load verifier from storage");
+        
+        // Print debug info about the stored key
+        println!("Stored verification key (base64):");
+        println!("Length: {}", verifier.vk_json.len());
+        println!("First 100 chars: {}", &verifier.vk_json[..100.min(verifier.vk_json.len())]);
+        
+        // Try to deserialize it
+        let vk_result = verifier.to_verifying_key();
+        assert!(vk_result.is_ok(), "Failed to deserialize verification key in WASM environment: {:?}", vk_result.err());
+        
+        // Validate the deserialized key
+        let vk = vk_result.unwrap();
+        assert!(vk.validate().is_ok(), "Verification key validation failed");
+    }
 } 

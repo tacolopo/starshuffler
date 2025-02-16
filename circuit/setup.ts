@@ -65,11 +65,16 @@ async function setupCircuit() {
         // Create binary format that matches ark-groth16's format for BN254
         let binaryKey = Buffer.alloc(0);
 
-        // Write alpha_g1 (x, y) coordinates - only take first two coordinates (affine form)
+        // Serialize vector length for gamma_abc_g1 (uint32 BE)
+        const vecLenBuf = Buffer.alloc(4);
+        vecLenBuf.writeUInt32BE(verificationKey.IC.length);
+        binaryKey = Buffer.concat([binaryKey, vecLenBuf]);
+
+        // Write alpha_g1 (x, y) coordinates
         binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.vk_alpha_1[0])]);
         binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.vk_alpha_1[1])]);
 
-        // Write beta_g2 coordinates - only take first two coordinates of each component
+        // Write beta_g2 coordinates
         for (let i = 0; i < 2; i++) {
             binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.vk_beta_2[i][0])]);
             binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.vk_beta_2[i][1])]);
@@ -87,31 +92,20 @@ async function setupCircuit() {
             binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.vk_delta_2[i][1])]);
         }
 
-        // Write vector length header (uint32)
-        const vecLengthHeader = Buffer.alloc(4);
-        vecLengthHeader.writeUInt32BE(2); // 2 IC points
-        binaryKey = Buffer.concat([binaryKey, vecLengthHeader]);
-
-        // Write IC length (should be 2 for root and nullifier_hash)
-        const icLength = Buffer.alloc(4);
-        icLength.writeUInt32BE(2);
-        binaryKey = Buffer.concat([binaryKey, icLength]);
-
-        // Write IC points - only take first two coordinates of each point
-        for (let i = 0; i < 2; i++) {
-            binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.IC[i][0])]);
-            binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.IC[i][1])]);
+        // Write IC points (gamma_abc_g1)
+        for (const point of verificationKey.IC) {
+            binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(point[0])]);
+            binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(point[1])]);
         }
 
         // Verify the binary key length
         const expectedLength = 
-            (2 * 32) +    // alpha_g1 (x,y)
-            (4 * 32) +    // beta_g2 (x_c1,x_c0,y_c1,y_c0)
-            (4 * 32) +    // gamma_g2
-            (4 * 32) +    // delta_g2
-            4 +           // Vector length header (uint32)
-            4 +           // IC length (uint32)
-            (2 * 2 * 32); // 2 IC points (x,y each)
+            4 +                 // Vector length header (uint32)
+            (2 * 32) +         // alpha_g1 (x,y)
+            (4 * 32) +         // beta_g2 (x_c1,x_c0,y_c1,y_c0)
+            (4 * 32) +         // gamma_g2
+            (4 * 32) +         // delta_g2
+            (verificationKey.IC.length * 2 * 32); // IC points (x,y each)
 
         if (binaryKey.length !== expectedLength) {
             throw new Error(`Invalid verification key length. Expected ${expectedLength} bytes, got ${binaryKey.length} bytes`);
@@ -133,7 +127,7 @@ async function setupCircuit() {
 
         console.log(`✓ Verification key files generated in src/verification_key/`);
         console.log(`  Binary key size: ${binaryKey.length} bytes`);
-        console.log(`  Number of IC points: 2`);
+        console.log(`  Number of IC points: ${verificationKey.IC.length}`);
         
     } catch (error) {
         console.error("Setup failed:", error);

@@ -1,4 +1,48 @@
+use std::env;
+use std::fs;
+use std::path::Path;
+use std::process::Command;
+
 fn main() {
-    // Temporarily skip all circuit compilation
-    println!("cargo:warning=Skipping circuit compilation for Rust build");
+    println!("cargo:rerun-if-changed=src/verification_key/verification_key.bin");
+    println!("cargo:rerun-if-changed=circuit/setup.ts");
+    println!("cargo:rerun-if-changed=circuit/setup.sh");
+
+    // Get the output directory
+    let out_dir = env::var("OUT_DIR").unwrap();
+    let target_dir = Path::new(&out_dir);
+
+    // Only run circuit setup in debug builds to avoid issues in production
+    if env::var("PROFILE").unwrap() == "debug" {
+        println!("cargo:warning=Running in debug mode - setting up circuit...");
+        
+        // Run circuit setup
+        let status = Command::new("npm")
+            .arg("run")
+            .arg("setup-circuit")
+            .status()
+            .expect("Failed to run circuit setup");
+
+        if !status.success() {
+            panic!("Circuit setup failed");
+        }
+    }
+
+    // Verify the verification key exists
+    let vk_path = Path::new("src/verification_key/verification_key.bin");
+    if !vk_path.exists() {
+        panic!("Verification key not found at {:?}. Please run `npm run setup-circuit` first", vk_path);
+    }
+
+    // Read and validate the verification key
+    let vk_bytes = fs::read(vk_path).expect("Failed to read verification key");
+    if vk_bytes.len() != 584 {  // Expected size from our previous tests
+        panic!("Invalid verification key size: {} bytes (expected 584)", vk_bytes.len());
+    }
+
+    // Copy the verification key to the output directory
+    let target_path = target_dir.join("verification_key.bin");
+    fs::write(&target_path, &vk_bytes).expect("Failed to copy verification key");
+
+    println!("cargo:warning=Verification key bundled successfully ({} bytes)", vk_bytes.len());
 } 
