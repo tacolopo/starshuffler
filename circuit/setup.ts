@@ -44,13 +44,8 @@ async function setupCircuit() {
             stdio: 'inherit'
         });
         
-        // Export verification key in both formats
+        // Export verification key in JSON format
         execSync('snarkjs zkey export verificationkey merkleproof_final.zkey verification_key.json', {
-            stdio: 'inherit'
-        });
-
-        // Export raw verification key binary using snarkjs
-        execSync('snarkjs zkey export verificationkey-raw merkleproof_final.zkey verification_key.bin', {
             stdio: 'inherit'
         });
 
@@ -58,10 +53,62 @@ async function setupCircuit() {
         const contractKeyPath = path.join(__dirname, '../src/verification_key');
         mkdirSync(contractKeyPath, { recursive: true });
         
-        // Copy both files to contract directory
-        execSync(`cp verification_key.json verification_key.bin ${contractKeyPath}/`, {
-            stdio: 'inherit'
-        });
+        // Read the verification key JSON
+        const verificationKey = JSON.parse(readFileSync('verification_key.json', 'utf8'));
+        
+        // Create binary format that matches arkworks' compressed format for BN254
+        let binaryKey = Buffer.alloc(0);
+
+        // Helper to convert decimal string to 32-byte buffer in little-endian
+        const decimalToBuffer = (decimal: string) => {
+            const bytes = [];
+            let num = BigInt(decimal);
+            for (let i = 0; i < 32; i++) {
+                bytes.push(Number(num & BigInt(255)));
+                num = num >> BigInt(8);
+            }
+            return Buffer.from(bytes);
+        };
+
+        // Write γₐᵦₖ (gamma_abc) vector - 2 G1 points for constant term and one public input
+        // Each G1 point is compressed to 32 bytes
+        for (const point of verificationKey.IC) {
+            binaryKey = Buffer.concat([binaryKey, decimalToBuffer(point[0])]);
+        }
+
+        // Write α in G1 (compressed to 32 bytes)
+        binaryKey = Buffer.concat([binaryKey, decimalToBuffer(verificationKey.vk_alpha_1[0])]);
+
+        // Write β in G2 (compressed to 64 bytes)
+        binaryKey = Buffer.concat([
+            binaryKey,
+            decimalToBuffer(verificationKey.vk_beta_2[0][0]),
+            decimalToBuffer(verificationKey.vk_beta_2[0][1])
+        ]);
+
+        // Write prepared (negated) γ in G2 (compressed to 64 bytes)
+        binaryKey = Buffer.concat([
+            binaryKey,
+            decimalToBuffer(verificationKey.vk_gamma_2[0][0]),
+            decimalToBuffer(verificationKey.vk_gamma_2[0][1])
+        ]);
+
+        // Write prepared (negated) δ in G2 (compressed to 64 bytes)
+        binaryKey = Buffer.concat([
+            binaryKey,
+            decimalToBuffer(verificationKey.vk_delta_2[0][0]),
+            decimalToBuffer(verificationKey.vk_delta_2[0][1])
+        ]);
+        
+        // Save both formats
+        writeFileSync(
+            path.join(contractKeyPath, 'verification_key.json'),
+            JSON.stringify(verificationKey, null, 2)
+        );
+        writeFileSync(
+            path.join(contractKeyPath, 'verification_key.bin'),
+            binaryKey
+        );
 
         console.log("✓ Verification key files generated in src/verification_key/");
         

@@ -15,15 +15,27 @@ impl Verifier {
         // Load the binary verification key
         let vk_bytes = include_bytes!("verification_key/verification_key.bin");
         
-        // Validate the verification key format before storing
-        MixerVerifyingKey::new(vk_bytes)
-            .expect("Invalid verification key binary format");
-            
-        // Convert to base64 for storage
-        let vk_base64 = base64::encode(vk_bytes);
-        
-        Self {
-            vk_json: vk_base64,  // Now public for debugging
+        // Try to deserialize and capture detailed error
+        match MixerVerifyingKey::new(vk_bytes) {
+            Ok(_vk) => {
+                let vk_base64 = base64::encode(vk_bytes);
+                Self {
+                    vk_json: vk_base64,
+                }
+            },
+            Err(e) => {
+                panic!(
+                    "Verification key error:\n\
+                    Length: {} bytes\n\
+                    First 32 bytes: {:02x?}\n\
+                    Error: {:?}\n\
+                    Full key: {:02x?}",
+                    vk_bytes.len(),
+                    &vk_bytes[..32.min(vk_bytes.len())],
+                    e,
+                    vk_bytes
+                );
+            }
         }
     }
 
