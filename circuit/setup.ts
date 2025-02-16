@@ -44,72 +44,24 @@ async function setupCircuit() {
             stdio: 'inherit'
         });
         
+        // Export verification key in both formats
         execSync('snarkjs zkey export verificationkey merkleproof_final.zkey verification_key.json', {
             stdio: 'inherit'
         });
 
-        console.log("Converting verification key to binary format...");
-        const verificationKey = JSON.parse(readFileSync('verification_key.json', 'utf8'));
-        
-        // Create binary format
-        let binaryKey = Buffer.alloc(0);
-
-        // Helper to convert decimal string to 32-byte buffer
-        const decimalToBuffer = (decimal: string) => {
-            const hex = BigInt(decimal).toString(16).padStart(64, '0');
-            return Buffer.from(hex, 'hex');
-        };
-
-        // Add alpha_g1
-        for (const coord of verificationKey.vk_alpha_1) {
-            binaryKey = Buffer.concat([binaryKey, decimalToBuffer(coord)]);
-        }
-
-        // Add beta_g2
-        for (const point of verificationKey.vk_beta_2) {
-            for (const coord of point) {
-                binaryKey = Buffer.concat([binaryKey, decimalToBuffer(coord)]);
-            }
-        }
-
-        // Add gamma_g2
-        for (const point of verificationKey.vk_gamma_2) {
-            for (const coord of point) {
-                binaryKey = Buffer.concat([binaryKey, decimalToBuffer(coord)]);
-            }
-        }
-
-        // Add delta_g2
-        for (const point of verificationKey.vk_delta_2) {
-            for (const coord of point) {
-                binaryKey = Buffer.concat([binaryKey, decimalToBuffer(coord)]);
-            }
-        }
-
-        // Add IC (encoded length followed by points)
-        const icLength = Buffer.alloc(4);
-        icLength.writeUInt32BE(verificationKey.IC.length);
-        binaryKey = Buffer.concat([binaryKey, icLength]);
-        
-        for (const point of verificationKey.IC) {
-            for (const coord of point) {
-                binaryKey = Buffer.concat([binaryKey, decimalToBuffer(coord)]);
-            }
-        }
+        // Export raw verification key binary using snarkjs
+        execSync('snarkjs zkey export verificationkey-raw merkleproof_final.zkey verification_key.bin', {
+            stdio: 'inherit'
+        });
 
         // Create src/verification_key directory if it doesn't exist
         const contractKeyPath = path.join(__dirname, '../src/verification_key');
         mkdirSync(contractKeyPath, { recursive: true });
         
-        // Save both formats
-        writeFileSync(
-            path.join(contractKeyPath, 'verification_key.json'),
-            JSON.stringify(verificationKey, null, 2)
-        );
-        writeFileSync(
-            path.join(contractKeyPath, 'verification_key.bin'),
-            binaryKey
-        );
+        // Copy both files to contract directory
+        execSync(`cp verification_key.json verification_key.bin ${contractKeyPath}/`, {
+            stdio: 'inherit'
+        });
 
         console.log("✓ Verification key files generated in src/verification_key/");
         
