@@ -7,7 +7,7 @@ use base64;
 
 #[derive(Serialize, Deserialize, Clone, Debug, JsonSchema)]
 pub struct Verifier {
-    pub vk_json: String,  // Actually making it public now
+    pub vk_json: String,  // base64 encoded verification key
 }
 
 impl Verifier {
@@ -31,9 +31,9 @@ impl Verifier {
                     );
                 }
                 
-                let vk_base64 = base64::encode(vk_bytes);
+                // Store the raw bytes as base64
                 Self {
-                    vk_json: vk_base64,
+                    vk_json: base64::encode(vk_bytes),
                 }
             },
             Err(e) => {
@@ -53,7 +53,7 @@ impl Verifier {
     }
 
     pub fn to_verifying_key(&self) -> StdResult<MixerVerifyingKey> {
-        // Decode base64 to bytes with detailed error
+        // Create MixerVerifyingKey from base64 string
         let vk_bytes = base64::decode(&self.vk_json)
             .map_err(|e| StdError::generic_err(format!(
                 "Failed to decode verification key from base64: {}. Base64 string length: {}", 

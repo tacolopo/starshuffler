@@ -9,6 +9,7 @@ use ark_groth16::{
 };
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use serde::{Deserialize, Serialize};
+use base64;
 
 // Define the types explicitly using the full paths
 type Bn254 = Bn<ark_bn254::Config>;
@@ -63,18 +64,31 @@ impl<'a> Serialize for MixerVerifyingKey {
     where
         S: serde::Serializer,
     {
-        // Storing the verifying key as none to avoid large JSON expansions
-        serializer.serialize_none()
+        // Serialize to bytes
+        let mut bytes = Vec::new();
+        self.0.serialize_uncompressed(&mut bytes)
+            .map_err(serde::ser::Error::custom)?;
+        
+        // Serialize as base64 string
+        serializer.serialize_str(&base64::encode(&bytes))
     }
 }
 
 impl<'de> Deserialize<'de> for MixerVerifyingKey {
-    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        // We don't expect to read the VerifyingKey from JSON
-        Ok(MixerVerifyingKey(VerifyingKey::default()))
+        // Deserialize from base64 string
+        let base64_str = String::deserialize(deserializer)?;
+        let bytes = base64::decode(&base64_str)
+            .map_err(serde::de::Error::custom)?;
+        
+        // Deserialize verification key
+        let vk = VerifyingKey::deserialize_uncompressed(&bytes[..])
+            .map_err(serde::de::Error::custom)?;
+            
+        Ok(MixerVerifyingKey(vk))
     }
 }
 
