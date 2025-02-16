@@ -56,7 +56,7 @@ async function setupCircuit() {
         // Read the verification key JSON
         const verificationKey = JSON.parse(readFileSync('verification_key.json', 'utf8'));
         
-        // Create binary format that matches arkworks' compressed format for BN254
+        // Create binary format that matches ark-groth16's uncompressed format for BN254
         let binaryKey = Buffer.alloc(0);
 
         // Helper to convert decimal string to 32-byte buffer in little-endian
@@ -70,35 +70,43 @@ async function setupCircuit() {
             return Buffer.from(bytes);
         };
 
-        // Write γₐᵦₖ (gamma_abc) vector - 2 G1 points for constant term and one public input
-        // Each G1 point is compressed to 32 bytes
-        for (const point of verificationKey.IC) {
-            binaryKey = Buffer.concat([binaryKey, decimalToBuffer(point[0])]);
+        // Write alpha_g1 (uncompressed)
+        for (const coord of verificationKey.vk_alpha_1) {
+            binaryKey = Buffer.concat([binaryKey, decimalToBuffer(coord)]);
         }
 
-        // Write α in G1 (compressed to 32 bytes)
-        binaryKey = Buffer.concat([binaryKey, decimalToBuffer(verificationKey.vk_alpha_1[0])]);
+        // Write beta_g2 (uncompressed)
+        for (const point of verificationKey.vk_beta_2) {
+            for (const coord of point) {
+                binaryKey = Buffer.concat([binaryKey, decimalToBuffer(coord)]);
+            }
+        }
 
-        // Write β in G2 (compressed to 64 bytes)
-        binaryKey = Buffer.concat([
-            binaryKey,
-            decimalToBuffer(verificationKey.vk_beta_2[0][0]),
-            decimalToBuffer(verificationKey.vk_beta_2[0][1])
-        ]);
+        // Write gamma_g2 (uncompressed)
+        for (const point of verificationKey.vk_gamma_2) {
+            for (const coord of point) {
+                binaryKey = Buffer.concat([binaryKey, decimalToBuffer(coord)]);
+            }
+        }
 
-        // Write prepared (negated) γ in G2 (compressed to 64 bytes)
-        binaryKey = Buffer.concat([
-            binaryKey,
-            decimalToBuffer(verificationKey.vk_gamma_2[0][0]),
-            decimalToBuffer(verificationKey.vk_gamma_2[0][1])
-        ]);
+        // Write delta_g2 (uncompressed)
+        for (const point of verificationKey.vk_delta_2) {
+            for (const coord of point) {
+                binaryKey = Buffer.concat([binaryKey, decimalToBuffer(coord)]);
+            }
+        }
 
-        // Write prepared (negated) δ in G2 (compressed to 64 bytes)
-        binaryKey = Buffer.concat([
-            binaryKey,
-            decimalToBuffer(verificationKey.vk_delta_2[0][0]),
-            decimalToBuffer(verificationKey.vk_delta_2[0][1])
-        ]);
+        // Write number of IC points (32-bit little-endian)
+        const icLength = Buffer.alloc(4);
+        icLength.writeUInt32LE(verificationKey.IC.length);
+        binaryKey = Buffer.concat([binaryKey, icLength]);
+
+        // Write IC points (uncompressed)
+        for (const point of verificationKey.IC) {
+            for (const coord of point) {
+                binaryKey = Buffer.concat([binaryKey, decimalToBuffer(coord)]);
+            }
+        }
         
         // Save both formats
         writeFileSync(
