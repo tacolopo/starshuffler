@@ -77,6 +77,9 @@ fn convert_vk() -> Result<(), Box<dyn std::error::Error>> {
 
     // Serialize to binary
     let mut buffer = Vec::new();
+    // Write a version byte (1) and padding to align
+    buffer.extend_from_slice(&[1, 0, 0, 0]);
+    // Then write the verification key
     vk.serialize_uncompressed(&mut buffer)?;
 
     // Write binary file

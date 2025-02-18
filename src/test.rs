@@ -14,6 +14,7 @@ mod tests {
         OwnedDeps, Coin, Uint128, MessageInfo, Env, from_json,
     };
     use hex;
+    use base64;
 
     const DENOM: &str = "ujuno";
     const AMOUNT: u128 = 1_000_000; // 1 JUNO = 1,000,000 ujuno
@@ -346,20 +347,78 @@ mod tests {
         let res = instantiate(deps.as_mut(), env, info, msg);
         assert!(res.is_ok(), "Contract instantiation failed: {:?}", res.err());
 
+        // Load the raw verification key bytes for analysis
+        let vk_bytes = include_bytes!("verification_key/verification_key.bin");
+        println!("\nRaw verification key analysis:");
+        println!("Total length: {} bytes", vk_bytes.len());
+        
+        // Analyze the structure
+        let vec_len = u32::from_be_bytes(vk_bytes[0..4].try_into().unwrap());
+        println!("Vector length field: {}", vec_len);
+        
+        // Print first few bytes of each section
+        println!("\nFirst 32 bytes (should be start of alpha_g1):");
+        println!("{:02x?}", &vk_bytes[4..36]);
+        
+        println!("\nStart of beta_g2 (bytes 68-100):");
+        println!("{:02x?}", &vk_bytes[68..100]);
+        
         // Try to load and deserialize the verification key from contract storage
         let verifier = VERIFIER.load(&deps.storage).expect("Failed to load verifier from storage");
         
-        // Print debug info about the stored key
-        println!("Stored verification key (base64):");
-        println!("Length: {}", verifier.vk_json.len());
-        println!("First 100 chars: {}", &verifier.vk_json[..100.min(verifier.vk_json.len())]);
+        println!("\nStored verification key analysis:");
+        println!("Base64 length: {}", verifier.vk_json.len());
         
-        // Try to deserialize it
-        let vk_result = verifier.to_verifying_key();
-        assert!(vk_result.is_ok(), "Failed to deserialize verification key in WASM environment: {:?}", vk_result.err());
+        // Decode base64 and analyze
+        let decoded = base64::decode(&verifier.vk_json).expect("Failed to decode base64");
+        println!("Decoded length: {}", decoded.len());
+        println!("First 32 bytes of decoded: {:02x?}", &decoded[..32]);
         
-        // Validate the deserialized key
-        let vk = vk_result.unwrap();
-        assert!(vk.validate().is_ok(), "Verification key validation failed");
+        // Try to deserialize with detailed error handling
+        match verifier.to_verifying_key() {
+            Ok(vk) => {
+                println!("\nSuccessfully deserialized verification key");
+                println!("Number of IC points: {}", vk.0.gamma_abc_g1.len());
+                assert!(vk.validate().is_ok(), "Verification key validation failed");
+            },
+            Err(e) => {
+                panic!("Deserialization failed: {:?}\nFirst 32 bytes of stored key: {:02x?}",
+                    e,
+                    &decoded[..32.min(decoded.len())]);
+            }
+        }
+    }
+
+    #[test]
+    fn test_direct_verification_key_deserialization() {
+        use ark_groth16::VerifyingKey;
+        use ark_bn254::Bn254;
+        use ark_serialize::CanonicalDeserialize;
+
+        // Load the raw verification key bytes
+        let vk_bytes = include_bytes!("verification_key/verification_key.bin");
+        println!("\nAnalyzing verification key binary:");
+        println!("Total length: {} bytes", vk_bytes.len());
+        
+        // Print the first few sections
+        println!("\nFirst 4 bytes (vector length):");
+        println!("{:02x?}", &vk_bytes[0..4]);
+        
+        println!("\nNext 64 bytes (alpha_g1):");
+        println!("{:02x?}", &vk_bytes[4..68]);
+        
+        println!("\nNext 128 bytes (beta_g2):");
+        println!("{:02x?}", &vk_bytes[68..196]);
+        
+        // Try direct deserialization
+        match VerifyingKey::<Bn254>::deserialize_uncompressed(&vk_bytes[..]) {
+            Ok(vk) => {
+                println!("\nSuccessfully deserialized verification key");
+                println!("Number of IC points: {}", vk.gamma_abc_g1.len());
+            },
+            Err(e) => {
+                panic!("Failed to deserialize verification key: {:?}", e);
+            }
+        }
     }
 } 

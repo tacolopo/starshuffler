@@ -65,51 +65,86 @@ async function setupCircuit() {
         // Create binary format that matches ark-groth16's format for BN254
         let binaryKey = Buffer.alloc(0);
 
-        // Serialize vector length for gamma_abc_g1 (uint32 BE)
-        const vecLenBuf = Buffer.alloc(4);
-        vecLenBuf.writeUInt32BE(verificationKey.IC.length);
+        // Convert decimal string to little-endian bytes in Montgomery form
+        function toMontgomeryLE(decimal: string): Buffer {
+            const bigIntVal = BigInt(decimal);
+            // BN254 modulus
+            const BN254_MODULUS = BigInt("21888242871839275222246405745257275088548364400416034343698204186575808495617");
+            // R^2 mod p for Montgomery conversion
+            const R2 = BigInt("3096616502983709201646626462971078013424005175480574684277844722172171871975");
+            // Convert to Montgomery form: (x * R^2) mod p
+            const montValue = (bigIntVal * R2) % BN254_MODULUS;
+            
+            // Convert to 32-byte little-endian
+            const buffer = Buffer.alloc(32);
+            let n = montValue;
+            for (let i = 0; i < 32; i++) {
+                buffer[i] = Number(n & BigInt(0xff));
+                n = n >> BigInt(8);
+            }
+            return buffer;
+        }
+
+        // Write alpha_g1 (x, y) coordinates in Montgomery form
+        binaryKey = Buffer.concat([binaryKey, toMontgomeryLE(verificationKey.vk_alpha_1[0])]);
+        binaryKey = Buffer.concat([binaryKey, toMontgomeryLE(verificationKey.vk_alpha_1[1])]);
+
+        // Write beta_g2 coordinates in Montgomery form
+        for (let i = 0; i < 2; i++) {
+            binaryKey = Buffer.concat([binaryKey, toMontgomeryLE(verificationKey.vk_beta_2[0][i])]);
+        }
+        for (let i = 0; i < 2; i++) {
+            binaryKey = Buffer.concat([binaryKey, toMontgomeryLE(verificationKey.vk_beta_2[1][i])]);
+        }
+
+        // Write gamma_g2 coordinates in Montgomery form
+        for (let i = 0; i < 2; i++) {
+            binaryKey = Buffer.concat([binaryKey, toMontgomeryLE(verificationKey.vk_gamma_2[0][i])]);
+        }
+        for (let i = 0; i < 2; i++) {
+            binaryKey = Buffer.concat([binaryKey, toMontgomeryLE(verificationKey.vk_gamma_2[1][i])]);
+        }
+
+        // Write delta_g2 coordinates in Montgomery form
+        for (let i = 0; i < 2; i++) {
+            binaryKey = Buffer.concat([binaryKey, toMontgomeryLE(verificationKey.vk_delta_2[0][i])]);
+        }
+        for (let i = 0; i < 2; i++) {
+            binaryKey = Buffer.concat([binaryKey, toMontgomeryLE(verificationKey.vk_delta_2[1][i])]);
+        }
+
+        // Write gamma_abc_g1 vector length as 8-byte little-endian
+        const vecLenBuf = Buffer.alloc(8);
+        vecLenBuf.writeBigUInt64LE(BigInt(verificationKey.IC.length));
         binaryKey = Buffer.concat([binaryKey, vecLenBuf]);
 
-        // Write alpha_g1 (x, y) coordinates
-        binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.vk_alpha_1[0])]);
-        binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.vk_alpha_1[1])]);
-
-        // Write beta_g2 coordinates
-        for (let i = 0; i < 2; i++) {
-            binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.vk_beta_2[i][0])]);
-            binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.vk_beta_2[i][1])]);
-        }
-
-        // Write gamma_g2 coordinates
-        for (let i = 0; i < 2; i++) {
-            binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.vk_gamma_2[i][0])]);
-            binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.vk_gamma_2[i][1])]);
-        }
-
-        // Write delta_g2 coordinates
-        for (let i = 0; i < 2; i++) {
-            binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.vk_delta_2[i][0])]);
-            binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(verificationKey.vk_delta_2[i][1])]);
-        }
-
-        // Write IC points (gamma_abc_g1)
+        // Write IC points (gamma_abc_g1) in Montgomery form
         for (const point of verificationKey.IC) {
-            binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(point[0])]);
-            binaryKey = Buffer.concat([binaryKey, decimalToBufferBE(point[1])]);
+            binaryKey = Buffer.concat([binaryKey, toMontgomeryLE(point[0])]);
+            binaryKey = Buffer.concat([binaryKey, toMontgomeryLE(point[1])]);
         }
 
         // Verify the binary key length
         const expectedLength = 
-            4 +                 // Vector length header (uint32)
             (2 * 32) +         // alpha_g1 (x,y)
             (4 * 32) +         // beta_g2 (x_c1,x_c0,y_c1,y_c0)
             (4 * 32) +         // gamma_g2
             (4 * 32) +         // delta_g2
+            8 +                // gamma_abc_g1 vector length (uint64)
             (verificationKey.IC.length * 2 * 32); // IC points (x,y each)
 
         if (binaryKey.length !== expectedLength) {
             throw new Error(`Invalid verification key length. Expected ${expectedLength} bytes, got ${binaryKey.length} bytes`);
         }
+
+        // Print debug info
+        console.log("\nVerification key structure:");
+        console.log(`alpha_g1: ${verificationKey.vk_alpha_1.slice(0, 2).join(', ')}`);
+        console.log(`beta_g2: ${verificationKey.vk_beta_2.map(p => p.slice(0, 2).join(', ')).join(' | ')}`);
+        console.log(`gamma_g2: ${verificationKey.vk_gamma_2.map(p => p.slice(0, 2).join(', ')).join(' | ')}`);
+        console.log(`delta_g2: ${verificationKey.vk_delta_2.map(p => p.slice(0, 2).join(', ')).join(' | ')}`);
+        console.log(`IC length: ${verificationKey.IC.length}`);
+        console.log(`First IC point: ${verificationKey.IC[0].slice(0, 2).join(', ')}`);
 
         // Create src/verification_key directory if it doesn't exist
         const contractKeyPath = path.join(__dirname, '../src/verification_key');
