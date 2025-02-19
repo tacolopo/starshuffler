@@ -3,7 +3,7 @@ use cw_storage_plus::{Item, Map};
 use serde::{Serialize, Deserialize};
 use crate::zk_snark::MixerVerifyingKey;
 use schemars::JsonSchema;
-use base64;
+use base64::{engine::general_purpose::STANDARD, Engine};
 
 #[derive(Serialize, Deserialize, Clone, Debug, JsonSchema)]
 pub struct Verifier {
@@ -33,7 +33,7 @@ impl Verifier {
                 
                 // Store the raw bytes as base64
                 Self {
-                    vk_json: base64::encode(vk_bytes),
+                    vk_json: STANDARD.encode(vk_bytes),
                 }
             },
             Err(e) => {
@@ -54,7 +54,7 @@ impl Verifier {
 
     pub fn to_verifying_key(&self) -> StdResult<MixerVerifyingKey> {
         // Create MixerVerifyingKey from base64 string
-        let vk_bytes = base64::decode(&self.vk_json)
+        let vk_bytes = STANDARD.decode(&self.vk_json)
             .map_err(|e| StdError::generic_err(format!(
                 "Failed to decode verification key from base64: {}. Base64 string length: {}", 
                 e, 

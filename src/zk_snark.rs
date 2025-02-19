@@ -9,7 +9,7 @@ use ark_groth16::{
 };
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use serde::{Deserialize, Serialize};
-use base64;
+use base64::{engine::general_purpose::STANDARD, Engine};
 
 // Define the types explicitly using the full paths
 type Bn254 = Bn<ark_bn254::Config>;
@@ -70,7 +70,7 @@ impl<'a> Serialize for MixerVerifyingKey {
             .map_err(serde::ser::Error::custom)?;
         
         // Serialize as base64 string
-        serializer.serialize_str(&base64::encode(&bytes))
+        serializer.serialize_str(&STANDARD.encode(&bytes))
     }
 }
 
@@ -81,7 +81,7 @@ impl<'de> Deserialize<'de> for MixerVerifyingKey {
     {
         // Deserialize from base64 string
         let base64_str = String::deserialize(deserializer)?;
-        let bytes = base64::decode(&base64_str)
+        let bytes = STANDARD.decode(&base64_str)
             .map_err(serde::de::Error::custom)?;
         
         // Deserialize verification key
