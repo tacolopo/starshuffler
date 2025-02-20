@@ -12,6 +12,7 @@ use crate::error::ContractError;
 use crate::msg::{ExecuteMsg, InstantiateMsg, QueryMsg, ConfigResponse};
 use crate::state::{Config, CONFIG, NULLIFIERS, MERKLE_TREE, COMMITMENTS, Verifier, VERIFIER};
 use crate::zk_snark::{MixerProof, verify_withdrawal};
+use crate::merkle::MerkleTree;
 
 const CONTRACT_NAME: &str = "crates.io:juno-privacy-mixer";
 const CONTRACT_VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -66,7 +67,7 @@ pub fn execute_deposit(
     info: MessageInfo,
     commitment: String,
 ) -> Result<Response, ContractError> {
-    let config = CONFIG.load(deps.storage)?;
+    let mut config = CONFIG.load(deps.storage)?;
     
     // Verify the sent amount matches the denomination
     ensure_eq!(
@@ -88,16 +89,28 @@ pub fn execute_deposit(
     let tree_key = format!("leaf_{}", deposit_index);
     MERKLE_TREE.save(deps.storage, tree_key, &commitment)?;
 
+    // Calculate new root
+    let mut tree = MerkleTree::new(config.merkle_tree_levels as usize);
+    for i in 0..deposit_index.u128() + 1 {
+        let key = format!("leaf_{}", i);
+        if let Some(leaf) = MERKLE_TREE.may_load(deps.storage, key)? {
+            tree.insert(leaf);
+        }
+    }
+    
+    // Update root in config
+    config.current_root = tree.get_root();
+    CONFIG.save(deps.storage, &config)?;
+
     // Update config with new deposit count
-    CONFIG.update(deps.storage, |mut config| -> StdResult<_> {
-        config.num_deposits += Uint128::new(1);
-        Ok(config)
-    })?;
+    config.num_deposits += Uint128::new(1);
+    CONFIG.save(deps.storage, &config)?;
 
     Ok(Response::new()
         .add_attribute("method", "deposit")
         .add_attribute("commitment", commitment)
-        .add_attribute("index", deposit_index.to_string()))
+        .add_attribute("index", deposit_index.to_string())
+        .add_attribute("root", config.current_root))
 }
 
 pub fn execute_withdraw(

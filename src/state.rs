@@ -12,42 +12,35 @@ pub struct Verifier {
 
 impl Verifier {
     pub fn new() -> Self {
-        // Load the binary verification key
-        let vk_bytes = include_bytes!("verification_key/verification_key.bin");
+        let vk_bytes = include_bytes!(concat!(env!("OUT_DIR"), "/verification_key.bin"));
         
+        println!("Loading verification key:");
+        println!("- File size: {} bytes", vk_bytes.len());
+        println!("- First 32 bytes (hex): {:02x?}", &vk_bytes[..32.min(vk_bytes.len())]);
+        println!("- File format marker (if exists): {:?}", 
+            String::from_utf8_lossy(&vk_bytes[..4.min(vk_bytes.len())]));
+
+        // Try to detect if it's JSON
+        if let Ok(json_str) = String::from_utf8(vk_bytes.to_vec()) {
+            if json_str.trim_start().starts_with('{') {
+                println!("WARNING: Verification key appears to be JSON format, expected binary");
+            }
+        }
+
         // Try to deserialize and validate the key
         match MixerVerifyingKey::new(vk_bytes) {
             Ok(vk) => {
-                // Validate key format
+                println!("Successfully parsed verification key structure");
                 if let Err(e) = vk.validate() {
-                    panic!(
-                        "Invalid verification key format:\n\
-                        Error: {:?}\n\
-                        Key length: {} bytes\n\
-                        First 32 bytes: {:02x?}",
-                        e,
-                        vk_bytes.len(),
-                        &vk_bytes[..32.min(vk_bytes.len())]
-                    );
+                    panic!("Validation failed: {:?}", e);
                 }
-                
-                // Store the raw bytes as base64
+                println!("Verification key validated successfully");
                 Self {
                     vk_json: STANDARD.encode(vk_bytes),
                 }
             },
             Err(e) => {
-                panic!(
-                    "Failed to deserialize verification key:\n\
-                    Length: {} bytes\n\
-                    First 32 bytes: {:02x?}\n\
-                    Error: {:?}\n\
-                    Full key: {:02x?}",
-                    vk_bytes.len(),
-                    &vk_bytes[..32.min(vk_bytes.len())],
-                    e,
-                    vk_bytes
-                );
+                panic!("Failed to parse verification key: {:?}", e);
             }
         }
     }

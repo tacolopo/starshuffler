@@ -75,10 +75,10 @@ mod tests {
         let mut tree = MerkleTree::new(4);
         
         // Insert some leaves
-        let leaf1 = "leaf1".to_string();
+        let leaf1 = "1".to_string();
         let (index1, proof1) = tree.insert(leaf1.clone());
         
-        let leaf2 = "leaf2".to_string();
+        let leaf2 = "2".to_string();
         let (_index2, _proof2) = tree.insert(leaf2);
         
         // Verify proof

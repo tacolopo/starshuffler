@@ -48,21 +48,28 @@ async function deploy() {
 
     // Instantiate the contract
     const instantiateMsg = {
-        denomination: {
-            amount: MIXER_AMOUNT,
-            denom: MIXER_DENOMINATION,
-        },
         merkle_tree_levels: 20,
+        denomination: {
+            denom: MIXER_DENOMINATION,
+            amount: MIXER_AMOUNT
+        }
     };
 
     const contract = await client.instantiate(
         account.address,
         uploadResult.codeId,
         instantiateMsg,
-        "Juno Privacy Mixer",
+        "Test",
         {
-            amount: [{ amount: "1500000", denom: "ujuno" }],
-            gas: "20000000",
+            amount: [{
+                amount: "3750000",
+                denom: "ujuno"
+            }],
+            gas: "50000000"
+        },
+        {
+            admin: account.address,
+            funds: [{ amount: MIXER_AMOUNT, denom: MIXER_DENOMINATION }]
         }
     );
 

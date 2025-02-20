@@ -20,8 +20,8 @@ pub struct MixerVerifyingKey(pub(crate) VerifyingKey<Bn254>);
 
 impl MixerVerifyingKey {
     pub fn new(bytes: &[u8]) -> Result<Self, ark_serialize::SerializationError> {
-        // Deserialize the verifying key directly
-        let vk = VerifyingKey::deserialize_uncompressed(bytes)?;
+        // Deserialize the verifying key using compressed format
+        let vk = VerifyingKey::deserialize_compressed(bytes)?;
         Ok(MixerVerifyingKey(vk))
     }
 
@@ -64,9 +64,9 @@ impl<'a> Serialize for MixerVerifyingKey {
     where
         S: serde::Serializer,
     {
-        // Serialize to bytes
+        // Serialize to bytes using compressed format
         let mut bytes = Vec::new();
-        self.0.serialize_uncompressed(&mut bytes)
+        self.0.serialize_compressed(&mut bytes)
             .map_err(serde::ser::Error::custom)?;
         
         // Serialize as base64 string
@@ -85,7 +85,7 @@ impl<'de> Deserialize<'de> for MixerVerifyingKey {
             .map_err(serde::de::Error::custom)?;
         
         // Deserialize verification key
-        let vk = VerifyingKey::deserialize_uncompressed(&bytes[..])
+        let vk = VerifyingKey::deserialize_compressed(&bytes[..])
             .map_err(serde::de::Error::custom)?;
             
         Ok(MixerVerifyingKey(vk))
@@ -112,7 +112,7 @@ pub fn serialize_proof(proof: &MixerProof) -> StdResult<Vec<u8>> {
     let mut bytes = Vec::new();
     proof
         .proof
-        .serialize_uncompressed(&mut bytes)
+        .serialize_compressed(&mut bytes)
         .map_err(|e| StdError::generic_err(format!("Failed to serialize proof: {}", e)))?;
     Ok(bytes)
 }
@@ -120,7 +120,7 @@ pub fn serialize_proof(proof: &MixerProof) -> StdResult<Vec<u8>> {
 // Helper function to serialize verifying key for storage
 pub fn serialize_vk(vk: &MixerVerifyingKey) -> StdResult<Vec<u8>> {
     let mut bytes = Vec::new();
-    vk.0.serialize_uncompressed(&mut bytes)
+    vk.0.serialize_compressed(&mut bytes)
         .map_err(|e| StdError::generic_err(format!("Failed to serialize verifying key: {}", e)))?;
     Ok(bytes)
 } 

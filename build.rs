@@ -12,20 +12,9 @@ fn main() {
     let out_dir = env::var("OUT_DIR").unwrap();
     let target_dir = Path::new(&out_dir);
 
-    // Only run circuit setup in debug builds to avoid issues in production
+    // Skip circuit setup in debug mode
     if env::var("PROFILE").unwrap() == "debug" {
-        println!("cargo:warning=Running in debug mode - setting up circuit...");
-        
-        // Run circuit setup
-        let status = Command::new("npm")
-            .arg("run")
-            .arg("setup-circuit")
-            .status()
-            .expect("Failed to run circuit setup");
-
-        if !status.success() {
-            panic!("Circuit setup failed");
-        }
+        println!("cargo:warning=Debug mode - skipping circuit setup");
     }
 
     // Verify the verification key exists
@@ -36,8 +25,8 @@ fn main() {
 
     // Read and validate the verification key
     let vk_bytes = fs::read(vk_path).expect("Failed to read verification key");
-    if vk_bytes.len() != 584 {  // Expected size from our previous tests
-        panic!("Invalid verification key size: {} bytes (expected 584)", vk_bytes.len());
+    if vk_bytes.len() != 296 {  // Expected size for compressed format
+        panic!("Invalid verification key size: {} bytes (expected 296)", vk_bytes.len());
     }
 
     // Copy the verification key to the output directory

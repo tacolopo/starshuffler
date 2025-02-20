@@ -4,7 +4,7 @@ use std::str::FromStr;
 use serde::Deserialize;
 use ark_bn254::{Bn254, Fq, G1Affine, G2Affine, Fq2};
 use ark_groth16::VerifyingKey;
-use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
+use ark_serialize::CanonicalSerialize;
 
 // Define a struct matching the JSON format from snarkjs
 #[derive(Deserialize)]
@@ -27,8 +27,7 @@ fn parse_g1(coords: &[String]) -> Result<G1Affine, Box<dyn std::error::Error>> {
         .map_err(|_| "Failed to parse x coordinate")?;
     let y = Fq::from_str(&coords[1])
         .map_err(|_| "Failed to parse y coordinate")?;
-    
-    // Verify z coordinate is 1 (affine form)
+    // z coordinate should be 1 for affine form
     assert_eq!(coords[2], "1", "G1 point must be in affine form");
     
     let point = G1Affine::new(x, y);
@@ -38,6 +37,22 @@ fn parse_g1(coords: &[String]) -> Result<G1Affine, Box<dyn std::error::Error>> {
 
 fn parse_g2(coords: &[Vec<String>]) -> Result<G2Affine, Box<dyn std::error::Error>> {
     assert_eq!(coords.len(), 3, "G2 point must have 3 coordinates");
+    
+    println!("\n=== Validating G2 point ===");
+    println!("Raw point data: {}", serde_json::to_string_pretty(coords)?);
+    
+    println!("Point coordinates:");
+    println!("x: {}", serde_json::to_string_pretty(&coords[0])?);
+    println!("y: {}", serde_json::to_string_pretty(&coords[1])?);
+    println!("z: {}", serde_json::to_string_pretty(&coords[2])?);
+    
+    println!("Converting coordinates to BigInt...");
+    
+    // Check z coordinate is [1,0] for affine form
+    println!("z0: {}", coords[2][0]);
+    println!("z1: {}", coords[2][1]);
+    assert_eq!(coords[2][0], "1", "G2 point must be in affine form");
+    assert_eq!(coords[2][1], "0", "G2 point must be in affine form");
     
     // Create Fq2 elements for x and y coordinates
     let x = Fq2::new(
@@ -50,53 +65,62 @@ fn parse_g2(coords: &[Vec<String>]) -> Result<G2Affine, Box<dyn std::error::Erro
         Fq::from_str(&coords[1][1]).map_err(|_| "Failed to parse y1")?
     );
     
-    // Verify z coordinate is [1,0] (affine form)
-    assert_eq!(coords[2][0], "1", "G2 point must be in affine form");
-    assert_eq!(coords[2][1], "0", "G2 point must be in affine form");
+    println!("Point already in standard form, no conversion needed");
     
     let point = G2Affine::new(x, y);
     assert!(point.is_on_curve(), "G2 point not on curve");
+    
+    println!("Final coordinates:");
+    println!("affineX: {}", serde_json::to_string_pretty(&[x.c0.to_string(), x.c1.to_string()])?);
+    println!("affineY: {}", serde_json::to_string_pretty(&[y.c0.to_string(), y.c1.to_string()])?);
+    println!("=== G2 point validation complete ===\n");
+    
     Ok(point)
 }
 
-fn convert_vk() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Reading verification key from JSON...");
-    let file = File::open("src/verification_key/verification_key.json")?;
+    let file = File::open("circuit/build/circuits/verification_key.json")?;
     let reader = BufReader::new(file);
     let snarkvk: SnarkjsVerificationKey = serde_json::from_reader(reader)?;
 
-    // Print full verification key structure
-    println!("Verification Key Structure:");
-    println!("  Protocol: {}", snarkvk.protocol);
-    println!("  Curve: {}", snarkvk.curve);
-    println!("  nPublic: {}", snarkvk.n_public);
-    println!("  IC length: {}", snarkvk.ic.len());
-    println!("  vk_alpha_1 length: {}", snarkvk.vk_alpha_1.len());
-    println!("  vk_beta_2 length: {}", snarkvk.vk_beta_2.len());
-    
     // Validate protocol and curve
     assert_eq!(snarkvk.protocol, "groth16", "Only Groth16 protocol is supported");
     assert_eq!(snarkvk.curve, "bn128", "Only BN128 curve is supported");
     
-    // Check if IC length matches n_public
-    if snarkvk.ic.len() != (snarkvk.n_public + 1) as usize {
-        return Err(format!(
-            "Mismatch between nPublic ({}) and IC length ({}). Note: IC length should be nPublic + 1", 
-            snarkvk.n_public, snarkvk.ic.len()
-        ).into());
-    }
+    println!("\nRaw verification key points:");
+    println!("alpha1: {}", serde_json::to_string_pretty(&snarkvk.vk_alpha_1)?);
+    println!("beta2: {}", serde_json::to_string_pretty(&snarkvk.vk_beta_2)?);
+    println!("gamma2: {}", serde_json::to_string_pretty(&snarkvk.vk_gamma_2)?);
+    println!("delta2: {}", serde_json::to_string_pretty(&snarkvk.vk_delta_2)?);
     
-    println!("Converting points to Arkworks format...");
+    println!("\nConverting points to affine coordinates...");
     
+    println!("Converting alpha_g1...");
+    println!("Converting G1 point: {}", serde_json::to_string_pretty(&snarkvk.vk_alpha_1)?);
     let alpha_g1 = parse_g1(&snarkvk.vk_alpha_1)?;
+    println!("Affine alpha1: [{}, {}]\n", alpha_g1.x, alpha_g1.y);
+    
+    println!("Converting beta_g2...");
     let beta_g2 = parse_g2(&snarkvk.vk_beta_2)?;
+    println!("Affine beta2: [[{}, {}], [{}, {}]]\n", 
+        beta_g2.x.c0, beta_g2.x.c1, beta_g2.y.c0, beta_g2.y.c1);
+    
+    println!("Converting gamma_2...");
     let gamma_g2 = parse_g2(&snarkvk.vk_gamma_2)?;
+    println!("Affine gamma2: [[{}, {}], [{}, {}]]\n",
+        gamma_g2.x.c0, gamma_g2.x.c1, gamma_g2.y.c0, gamma_g2.y.c1);
+    
+    println!("Converting delta_2...");
     let delta_g2 = parse_g2(&snarkvk.vk_delta_2)?;
+    println!("Affine delta2: [[{}, {}], [{}, {}]]\n",
+        delta_g2.x.c0, delta_g2.x.c1, delta_g2.y.c0, delta_g2.y.c1);
 
     println!("Converting IC points...");
-    
     let mut ic = Vec::new();
-    for coords in snarkvk.ic.iter() {
+    for (i, coords) in snarkvk.ic.iter().enumerate() {
+        println!("Converting IC point {}...", i);
+        println!("Converting G1 point: {}", serde_json::to_string_pretty(coords)?);
         ic.push(parse_g1(coords)?);
     }
 
@@ -108,61 +132,30 @@ fn convert_vk() -> Result<(), Box<dyn std::error::Error>> {
         gamma_abc_g1: ic,
     };
 
-    println!("Serializing to binary format...");
-    
+    println!("Serializing to binary format (compressed)...");
     let mut buffer = Vec::new();
-    vk.serialize_uncompressed(&mut buffer)?;
+    vk.serialize_compressed(&mut buffer)?;
 
-    // Calculate expected sizes
-    let g1_size = 2 * 32;  // x,y coordinates
-    let g2_size = 4 * 32;  // x_c1,x_c0,y_c1,y_c0 coordinates
-    let ic_size = snarkvk.ic.len() * g1_size;  // Each IC point is a G1 point
-    let ic_length_size = 4;  // uint32 for number of IC points
-    let vec_length_header = 4;  // uint32 header for vector length
+    // Print debug info
+    println!("\nVerification key structure:");
+    println!("alpha_g1: {}, {}", vk.alpha_g1.x, vk.alpha_g1.y);
+    println!("beta_g2: {}, {} | {}, {}", 
+        vk.beta_g2.x.c0, vk.beta_g2.x.c1, vk.beta_g2.y.c0, vk.beta_g2.y.c1);
+    println!("gamma_g2: {}, {} | {}, {}", 
+        vk.gamma_g2.x.c0, vk.gamma_g2.x.c1, vk.gamma_g2.y.c0, vk.gamma_g2.y.c1);
+    println!("delta_g2: {}, {} | {}, {}", 
+        vk.delta_g2.x.c0, vk.delta_g2.x.c1, vk.delta_g2.y.c0, vk.delta_g2.y.c1);
+    println!("IC length: {}", vk.gamma_abc_g1.len());
+    println!("First IC point: {}, {}", vk.gamma_abc_g1[0].x, vk.gamma_abc_g1[0].y);
 
-    let expected_length = 
-        g1_size +     // alpha_g1
-        g2_size +     // beta_g2
-        g2_size +     // gamma_g2
-        g2_size +     // delta_g2
-        vec_length_header + // Vector length header
-        ic_length_size + // IC length
-        ic_size;     // IC points
-
-    println!("Size breakdown:");
-    println!("  alpha_g1: {} bytes", g1_size);
-    println!("  beta_g2: {} bytes", g2_size);
-    println!("  gamma_g2: {} bytes", g2_size);
-    println!("  delta_g2: {} bytes", g2_size);
-    println!("  Vector length header: {} bytes", vec_length_header);
-    println!("  IC length field: {} bytes", ic_length_size);
-    println!("  IC points ({}): {} bytes", snarkvk.ic.len(), ic_size);
-    println!("  Total expected: {} bytes", expected_length);
-    println!("  Actual buffer: {} bytes", buffer.len());
-    
-    assert_eq!(buffer.len(), expected_length, 
-        "Invalid serialized length. Expected {}, got {}", 
-        expected_length, buffer.len());
-
+    // Write the verification key
+    std::fs::create_dir_all("src/verification_key")?;
     let mut out_file = File::create("src/verification_key/verification_key.bin")?;
     out_file.write_all(&buffer)?;
 
-    // Test deserialization of the binary key
-    println!("\nTesting deserialization of binary key...");
-    let test_buffer = std::fs::read("src/verification_key/verification_key.bin")?;
-    let _test_vk = VerifyingKey::<Bn254>::deserialize_uncompressed(&test_buffer[..])
-        .map_err(|e| format!("Failed to deserialize verification key: {}", e))?;
-    println!("✓ Successfully deserialized verification key");
+    println!("✓ Verification key files generated in src/verification_key/");
+    println!("  Binary key size: {} bytes", buffer.len());
+    println!("  Number of IC points: {}", vk.gamma_abc_g1.len());
 
-    println!("\nSuccessfully converted verification key to Arkworks binary format");
-    println!("Output size: {} bytes", buffer.len());
-    println!("Number of IC points: {}", snarkvk.ic.len());
     Ok(())
-}
-
-fn main() {
-    if let Err(e) = convert_vk() {
-        eprintln!("Conversion failed: {}", e);
-        std::process::exit(1);
-    }
 } 

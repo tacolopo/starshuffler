@@ -1,38 +1,28 @@
 #!/bin/bash
-set -e # Exit on error
+set -e
 
-echo "Cleaning up previous build..."
-rm -rf build *.ptau *.zkey *.r1cs *.sym *.wasm verification_key.json
-
+# Create build directory
 echo "Creating build directory..."
 mkdir -p build/circuits
-mkdir -p build/contract
-mkdir -p ../src/verification_key
 
-echo "Installing dependencies..."
-npm install
-
+# Compile the circuit
 echo "Compiling circuit..."
-circom mixer.circom \
-  --r1cs \
-  --wasm \
-  --sym \
-  -o build/circuits
+circom mixer.circom --r1cs --wasm --sym -o build/circuits
 
+# Download powers of tau and generate proving key
 echo "Downloading powers of tau..."
-curl -L https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_16.ptau -o build/circuits/pot16_final.ptau
+curl -L -o build/circuits/pot15_final.ptau https://hermez.s3-eu-west-1.amazonaws.com/powersOfTau28_hez_final_15.ptau
 
 echo "Generating proving key..."
 cd build/circuits
-
-echo "Running setup..."
-snarkjs zkey new mixer.r1cs pot16_final.ptau mixer_0.zkey
+snarkjs groth16 setup mixer.r1cs pot15_final.ptau mixer_0.zkey
 snarkjs zkey contribute mixer_0.zkey mixer_final.zkey --name="1st contribution" -v
 snarkjs zkey export verificationkey mixer_final.zkey verification_key.json
 
-echo "Converting verification key formats..."
-cd ../.. # Return to circuit directory
-cp build/circuits/verification_key.json .
-npx ts-node setup.ts
+# Convert verification key to binary format for the contract
+echo "Converting verification key to binary format..."
+cd ../../..  # Go back to project root
+mkdir -p src/verification_key
+cargo run --bin convert_verification_key
 
 echo "Setup complete!" 
