@@ -21,3 +21,6 @@ frontend/.env.development.local
 frontend/.env.test.local
 frontend/.env.production.local
 .cache/
+frontend/.next/
+frontend/out/
+frontend/node_modules/
