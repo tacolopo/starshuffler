@@ -21,6 +21,9 @@ const Deposit = ({ client, contractAddress }) => {
   const poseidon = usePoseidon();
   const toast = useToast();
 
+  // Generate a cryptographically secure random secret
+  // The secret is a 32-byte (256-bit) random value encoded as a hex string
+  // This format is compatible with the circuit's requirements for field elements in the BN254 curve
   const generateRandomSecret = () => {
     const randomBytes = new Uint8Array(32);
     crypto.getRandomValues(randomBytes);

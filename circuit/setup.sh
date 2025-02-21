@@ -15,6 +15,8 @@ curl -L -o build/circuits/pot15_final.ptau https://hermez.s3-eu-west-1.amazonaws
 
 echo "Generating proving key..."
 cd build/circuits
+rm -f mixer_0.zkey mixer_final.zkey
+
 snarkjs groth16 setup mixer.r1cs pot15_final.ptau mixer_0.zkey
 snarkjs zkey contribute mixer_0.zkey mixer_final.zkey --name="1st contribution" -v
 snarkjs zkey export verificationkey mixer_final.zkey verification_key.json

@@ -7,6 +7,7 @@ const { SigningCosmWasmClient } = require('@cosmjs/cosmwasm-stargate');
 const circomlibjs = require('circomlibjs');
 const { groth16 } = require('snarkjs');
 const path = require('path');
+const fs = require('fs');
 
 // Helper function to format a field element to 32 bytes in big-endian hex
 const formatFieldElement = (n) => {
@@ -88,6 +89,38 @@ async function initializeClient() {
   }
 }
 
+// Load verification key
+const verificationKey = JSON.parse(fs.readFileSync(path.join(__dirname, 'verification_key/verification_key.json')));
+if (!verificationKey.vk_base64) {
+    throw new Error('Invalid verification key format');
+}
+
+// Convert base64 verification key back to binary for proof verification
+const vkBinary = Buffer.from(verificationKey.vk_base64, 'base64');
+
+// Simplified validation function
+function validateZkeyFile(filepath) {
+  try {
+    const stats = fs.statSync(filepath);
+    console.log('zkey file validation:');
+    console.log('- File exists:', fs.existsSync(filepath));
+    console.log('- File size:', stats.size, 'bytes');
+    console.log('- File permissions:', stats.mode.toString(8));
+    console.log('- Absolute path:', path.resolve(filepath));
+    
+    // Read header
+    const fd = fs.openSync(filepath, 'r');
+    const buffer = Buffer.alloc(32);
+    fs.readSync(fd, buffer, 0, 32, 0);
+    console.log('- Header bytes:', buffer.toString('hex'));
+    fs.closeSync(fd);
+    return true;
+  } catch (error) {
+    console.error('zkey file validation failed:', error);
+    return false;
+  }
+}
+
 // Add this endpoint to handle both proof generation and withdrawal
 app.post('/relay-withdrawal', async (req, res) => {
   try {
@@ -99,6 +132,11 @@ app.post('/relay-withdrawal', async (req, res) => {
         details: 'Missing required parameters in note' 
       });
     }
+
+    // Validate file but don't throw
+    const zkeyPath = path.join(__dirname, 'build/circuits/mixer.zkey');
+    console.log('\nValidating zkey file before proof generation...');
+    validateZkeyFile(zkeyPath);
 
     // Generate nullifier hash from secret
     const secretBigInt = BigInt('0x' + note.secret);
@@ -118,38 +156,56 @@ app.post('/relay-withdrawal', async (req, res) => {
 
     // Generate commitment from nullifier and secret
     const commitment = poseidon.F.toString(
-      poseidon([secretBigInt, secretBigInt])  // Using secret as both nullifier and secret for now
+      poseidon([secretBigInt, secretBigInt])  // Using secret as both nullifier and secret
     );
     console.log('Generated commitment:', commitment);
 
-    // Generate ZK proof
+    // Generate circuit inputs with correct nullifier hash
     const input = {
-      leaf: commitment,
-      pathElements: Array(20).fill("0"), // TODO: Get actual merkle path
-      pathIndices: Array(20).fill(0)     // TODO: Get actual indices
+      root: rootBigInt.toString(),
+      nullifier: nullifierHash,  // Changed: Use nullifierHash instead of secret
+      secret: secretBigInt.toString(),
+      path_elements: Array(20).fill("0"),
+      path_indices: Array(20).fill(0)
     };
 
-    console.log('Circuit inputs:', input);
+    console.log('Circuit verification:');
+    console.log('1. Circuit input structure:');
+    console.log('- root (public):', input.root);
+    console.log('- nullifier (public):', input.nullifier);
+    console.log('- secret (private):', input.secret);
+    console.log('- path_elements (private):', input.path_elements.slice(0, 3), '...');
+    console.log('- path_indices (private):', input.path_indices.slice(0, 3), '...');
 
-    const wasmPath = path.join(__dirname, '../circuit/build/circuits/merkleproof_js/merkleproof.wasm');
-    const zkeyPath = path.join(__dirname, '../circuit/build/circuits/merkleproof_final.zkey');
+    console.log('\n2. Hash verification:');
+    console.log('- Generated nullifier hash:', nullifierHash);
+    console.log('- Input nullifier:', input.nullifier);
+    console.log('- Generated commitment:', commitment);
 
-    console.log('Loading circuit files from:', { wasmPath, zkeyPath });
-    const { proof, publicSignals } = await groth16.fullProve(input, wasmPath, zkeyPath);
-    console.log('Generated proof:', proof);
-    console.log('Public signals:', publicSignals);
+    // Add this before proof generation
+    console.log('\n3. Circuit file verification:');
+    console.log('- WASM file exists:', fs.existsSync(path.join(__dirname, 'build/circuits/mixer.wasm')));
+    console.log('- WASM file size:', fs.statSync(path.join(__dirname, 'build/circuits/mixer.wasm')).size);
+
+    const { proof, publicSignals } = await groth16.prove(
+      path.join(__dirname, 'build/circuits/mixer.wasm'),
+      path.join(__dirname, 'build/circuits/mixer.zkey'),
+      input
+    );
+
+    // Verify the proof locally before submitting
+    const isValid = await groth16.verify(vkBinary, publicSignals, proof);
+    if (!isValid) {
+      throw new Error('Proof verification failed locally');
+    }
 
     // Convert proof to contract format
     const proofHex = [
-      toLEHex(formatFieldElement(proof.pi_a[0])),
-      toLEHex(formatFieldElement(proof.pi_a[1])),
-      toLEHex(formatFieldElement(proof.pi_b[0][0])),
-      toLEHex(formatFieldElement(proof.pi_b[0][1])),
-      toLEHex(formatFieldElement(proof.pi_b[1][0])),
-      toLEHex(formatFieldElement(proof.pi_b[1][1])),
-      toLEHex(formatFieldElement(proof.pi_c[0])),
-      toLEHex(formatFieldElement(proof.pi_c[1]))
-    ].join('');
+      proof.pi_a[0], proof.pi_a[1],
+      proof.pi_b[0][0], proof.pi_b[0][1],
+      proof.pi_b[1][0], proof.pi_b[1][1],
+      proof.pi_c[0], proof.pi_c[1]
+    ].map(x => x.toString(16)).join('');
 
     // Execute withdrawal with the real proof
     const [account] = await wallet.getAccounts();
@@ -187,7 +243,6 @@ app.post('/relay-withdrawal', async (req, res) => {
   } catch (error) {
     console.error('Relay withdrawal error:', error);
     
-    // Send a more detailed error response
     res.status(500).json({
       error: 'Failed to process withdrawal',
       details: error.message,

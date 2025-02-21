@@ -4,6 +4,7 @@ import { GasPrice } from "@cosmjs/stargate";
 import { readFileSync, existsSync } from "fs";
 import * as dotenv from "dotenv";
 import path from 'path';
+import { execSync } from 'child_process';
 
 dotenv.config();
 
@@ -78,6 +79,10 @@ async function deploy() {
     // Save contract address to .env file
     const envAddition = `\nCONTRACT_ADDRESS=${contract.contractAddress}`;
     require('fs').appendFileSync('.env', envAddition);
+
+    // After contract instantiation, sync the verification key files
+    console.log('Syncing verification key files...');
+    execSync('npx ts-node scripts/sync-verification-key.ts');
 }
 
 deploy().catch(console.error); 

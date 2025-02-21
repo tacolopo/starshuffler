@@ -9,7 +9,9 @@
     "deploy-contract": "ts-node scripts/deploy-contract.ts",
     "setup-relayer": "cd relayer && npm install && npm run build",
     "setup-frontend": "cd frontend && npm install && npm run build",
-    "deploy": "npm run setup-circuit && npm run build-contract && npm run optimize-contract && npm run deploy-contract",
+    "convert-vk": "node scripts/convert-vk.js",
+    "copy-mixer-files": "mkdir -p relayer/build/circuits relayer/verification_key && cp circuit/build/circuits/mixer_final.zkey relayer/build/circuits/mixer.zkey && cp circuit/build/circuits/mixer_js/mixer.wasm relayer/build/circuits/mixer.wasm && cp -r circuit/mixer_js relayer/ && mkdir -p frontend/public/mixer && cp circuit/verification_key.json frontend/public/mixer/ && cp -r circuit/mixer_js frontend/public/mixer/",
+    "deploy": "npm run setup-circuit && npm run build-contract && npm run optimize-contract && npm run deploy-contract && npm run convert-vk && npm run copy-mixer-files",
     "verify": "bash scripts/deploy-checklist.sh"
   },
   "dependencies": {
@@ -21,6 +23,7 @@
     "express-rate-limit": "^7.5.0",
     "ioredis": "^5.5.0",
     "rate-limit-redis": "^4.2.0",
+    "snarkjs": "^0.7.5",
     "ts-node": "^10.9.1",
     "typescript": "^4.9.5"
   },
