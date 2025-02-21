@@ -34,7 +34,7 @@ pub fn instantiate(
         denomination: msg.denomination,
         merkle_tree_levels: msg.merkle_tree_levels,
         num_deposits: Uint128::zero(),
-        current_root: "".to_string(),
+        current_root: "0".repeat(64),  // Initialize with 64 zeros to match MerkleTree implementation
     };
     CONFIG.save(deps.storage, &config)?;
 
@@ -87,19 +87,34 @@ pub fn execute_deposit(
 
     // Update the Merkle tree
     let tree_key = format!("leaf_{}", deposit_index);
-    MERKLE_TREE.save(deps.storage, tree_key, &commitment)?;
+    MERKLE_TREE.save(deps.storage, tree_key.clone(), &commitment)?;
 
-    // Calculate new root
+    // Calculate new root with debug logging
     let mut tree = MerkleTree::new(config.merkle_tree_levels as usize);
+    
+    // Debug: Print initial tree state
+    println!("Building Merkle tree with {} levels", config.merkle_tree_levels);
+    println!("Current deposit index: {}", deposit_index);
+    println!("New commitment being added: {}", commitment);
+    
+    // Insert all leaves including the new one
     for i in 0..deposit_index.u128() + 1 {
         let key = format!("leaf_{}", i);
-        if let Some(leaf) = MERKLE_TREE.may_load(deps.storage, key)? {
+        if let Some(leaf) = MERKLE_TREE.may_load(deps.storage, key.clone())? {
+            println!("Inserting leaf at index {}: {}", i, leaf);
             tree.insert(leaf);
+        } else {
+            println!("Warning: No leaf found at index {}", i);
         }
     }
     
+    // Get and log the new root
+    let new_root = tree.get_root();
+    println!("Calculated new root: {}", new_root);
+    println!("Previous root was: {}", config.current_root);
+    
     // Update root in config
-    config.current_root = tree.get_root();
+    config.current_root = new_root;
     CONFIG.save(deps.storage, &config)?;
 
     // Update config with new deposit count
